@@ -1,0 +1,31 @@
+{
+  "name": "distributed-wagering-processor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Multi-instance-safe financial wagering processor",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "bun run src/main.ts",
+    "start:dev": "bun --watch run src/main.ts",
+    "build": "nest build",
+    "test": "bun test",
+    "test:unit": "bun test ./test/unit",
+    "test:integration": "bun test ./test/integration",
+    "test:e2e": "bun test ./test/health ./test/e2e"
+  },
+  "dependencies": {
+    "@nestjs/common": "12.1.3",
+    "@nestjs/core": "12.1.3",
+    "@nestjs/platform-express": "12.1.3",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "12.0.8",
+    "@nestjs/testing": "12.1.3",
+    "@types/bun": "1.4.3",
+    "@types/supertest": "7.2.1",
+    "supertest": "7.3.1",
+    "typescript": "^6"
+  }
+}
