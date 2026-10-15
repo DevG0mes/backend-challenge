@@ -9,6 +9,7 @@ import { Money } from '../../../src/shared/domain/money/money';
 import { CreateWalletUseCase } from '../../../src/wallet/application/create-wallet.use-case';
 import { MikroOrmWalletRepository } from '../../../src/wallet/infrastructure/persistence/mikro-orm-wallet.repository';
 import { MikroOrmWagerTransactionRepository } from '../../../src/wagering/infrastructure/persistence/mikro-orm-wager-transaction.repository';
+import { MikroOrmOutboxRepository } from '../../../src/messaging/infrastructure/persistence/mikro-orm-outbox.repository';
 
 const PLAYER_ID = '0192f28f-5dc0-7d58-bdb2-814ad6a0f4a1';
 const WALLET_ID = '0192f291-27dd-7d3f-8071-5f8685deef37';
@@ -21,6 +22,7 @@ describe('CreateWalletUseCase', () => {
   let wallets: MikroOrmWalletRepository;
   let wagers: MikroOrmWagerTransactionRepository;
   let transactions: PostgresTransactionRunner;
+  let outbox: MikroOrmOutboxRepository;
 
   beforeAll(async () => {
     orm = await MikroORM.init(
@@ -36,6 +38,7 @@ describe('CreateWalletUseCase', () => {
     wallets = new MikroOrmWalletRepository(orm.em);
     wagers = new MikroOrmWagerTransactionRepository(orm.em);
     transactions = new PostgresTransactionRunner(orm.em);
+    outbox = new MikroOrmOutboxRepository(orm.em);
   });
 
   beforeEach(async () => {
@@ -49,7 +52,8 @@ describe('CreateWalletUseCase', () => {
   });
 
   test('atomically creates wallet, OPENING transaction, and credit ledger', async () => {
-    const useCase = createUseCase([WALLET_ID, OPENING_ID, LEDGER_ID]);
+    const useCase = createUseCase([WALLET_ID, OPENING_ID, LEDGER_ID,
+      '0192f299-345e-7e38-af88-e43f851a819f', '0192f299-345e-7e38-af88-e43f851a8200']);
 
     const result = await useCase.execute({
       playerId: PLAYER_ID,
@@ -70,6 +74,10 @@ describe('CreateWalletUseCase', () => {
       { kind: string; status: string; amount: string }[]
     >('select kind, status, amount from wager_transactions');
     expect(opening[0]).toEqual({ kind: 'OPENING', status: 'PROCESSED', amount: '100.00' });
+    const events = await orm.em.getConnection().execute<{ event_type: string }[]>(
+      'select event_type from outbox_messages order by event_type',
+    );
+    expect(events.map((event) => event.event_type)).toEqual(['WagerProcessed', 'WalletBalanceChanged']);
   });
 
   test('creates a zero wallet without OPENING or ledger movement', async () => {
@@ -120,6 +128,7 @@ describe('CreateWalletUseCase', () => {
       transactions,
       wallets,
       wagers,
+      outbox,
       new SequenceIdGenerator(ids),
       { now: () => NOW },
     );

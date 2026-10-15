@@ -15,6 +15,7 @@ import { MikroOrmWalletRepository } from './wallet/infrastructure/persistence/mi
 import { ProcessWagerUseCase } from './wagering/application/process-wager.use-case';
 import { WageringController } from './wagering/interface/http/wagering.controller';
 import { MikroOrmWagerTransactionRepository } from './wagering/infrastructure/persistence/mikro-orm-wager-transaction.repository';
+import { MikroOrmOutboxRepository } from './messaging/infrastructure/persistence/mikro-orm-outbox.repository';
 
 @Module({
   imports: [MikroOrmModule.forRoot(mikroOrmConfig)],
@@ -26,17 +27,18 @@ import { MikroOrmWagerTransactionRepository } from './wagering/infrastructure/pe
     { provide: PostgresTransactionRunner, inject: [CoreMikroORM], useFactory: (orm: MikroORM) => new PostgresTransactionRunner(orm.em) },
     { provide: MikroOrmWalletRepository, inject: [CoreMikroORM], useFactory: (orm: MikroORM) => new MikroOrmWalletRepository(orm.em) },
     { provide: MikroOrmWagerTransactionRepository, inject: [CoreMikroORM], useFactory: (orm: MikroORM) => new MikroOrmWagerTransactionRepository(orm.em) },
+    { provide: MikroOrmOutboxRepository, inject: [CoreMikroORM], useFactory: (orm: MikroORM) => new MikroOrmOutboxRepository(orm.em) },
     {
       provide: CreateWalletUseCase,
-      inject: [PostgresTransactionRunner, MikroOrmWalletRepository, MikroOrmWagerTransactionRepository, RandomIdGenerator, SystemClock],
-      useFactory: (transactions: PostgresTransactionRunner, wallets: MikroOrmWalletRepository, wagers: MikroOrmWagerTransactionRepository, ids: RandomIdGenerator, clock: SystemClock) =>
-        new CreateWalletUseCase(transactions, wallets, wagers, ids, clock),
+      inject: [PostgresTransactionRunner, MikroOrmWalletRepository, MikroOrmWagerTransactionRepository, MikroOrmOutboxRepository, RandomIdGenerator, SystemClock],
+      useFactory: (transactions: PostgresTransactionRunner, wallets: MikroOrmWalletRepository, wagers: MikroOrmWagerTransactionRepository, outbox: MikroOrmOutboxRepository, ids: RandomIdGenerator, clock: SystemClock) =>
+        new CreateWalletUseCase(transactions, wallets, wagers, outbox, ids, clock),
     },
     {
       provide: ProcessWagerUseCase,
-      inject: [PostgresTransactionRunner, MikroOrmWalletRepository, MikroOrmWagerTransactionRepository, RandomIdGenerator, SystemClock],
-      useFactory: (transactions: PostgresTransactionRunner, wallets: MikroOrmWalletRepository, wagers: MikroOrmWagerTransactionRepository, ids: RandomIdGenerator, clock: SystemClock) =>
-        new ProcessWagerUseCase(transactions, wallets, wagers, ids, clock),
+      inject: [PostgresTransactionRunner, MikroOrmWalletRepository, MikroOrmWagerTransactionRepository, MikroOrmOutboxRepository, RandomIdGenerator, SystemClock],
+      useFactory: (transactions: PostgresTransactionRunner, wallets: MikroOrmWalletRepository, wagers: MikroOrmWagerTransactionRepository, outbox: MikroOrmOutboxRepository, ids: RandomIdGenerator, clock: SystemClock) =>
+        new ProcessWagerUseCase(transactions, wallets, wagers, outbox, ids, clock),
     },
   ],
 })

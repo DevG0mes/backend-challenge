@@ -8,7 +8,8 @@ export type DomainErrorCode =
   | 'UNBALANCED_LEDGER_ENTRY'
   | 'REFERENCE_REQUIRED'
   | 'INVALID_TRANSACTION_STATE'
-  | 'INVALID_REFERENCE_KIND';
+  | 'INVALID_REFERENCE_KIND'
+  | 'OUTBOX_ALREADY_PUBLISHED';
 
 export class DomainError extends Error {
   constructor(

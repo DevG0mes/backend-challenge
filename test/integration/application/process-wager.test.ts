@@ -14,6 +14,7 @@ import {
 } from '../../../src/wagering/application/process-wager.use-case';
 import { WagerTransactionKind, WagerTransactionStatus } from '../../../src/wagering/domain/wager-transaction';
 import { MikroOrmWagerTransactionRepository } from '../../../src/wagering/infrastructure/persistence/mikro-orm-wager-transaction.repository';
+import { MikroOrmOutboxRepository } from '../../../src/messaging/infrastructure/persistence/mikro-orm-outbox.repository';
 
 const PLAYER_ID = '0192f28f-5dc0-7d58-bdb2-814ad6a0f4a1';
 const NOW = new Date('2026-10-15T12:00:00.000Z');
@@ -40,8 +41,9 @@ describe('ProcessWagerUseCase', () => {
     const wallets = new MikroOrmWalletRepository(orm.em);
     const wagers = new MikroOrmWagerTransactionRepository(orm.em);
     const ids = new RandomIdGenerator();
-    createWallet = new CreateWalletUseCase(transactions, wallets, wagers, ids, clock);
-    processWager = new ProcessWagerUseCase(transactions, wallets, wagers, ids, clock);
+    const outbox = new MikroOrmOutboxRepository(orm.em);
+    createWallet = new CreateWalletUseCase(transactions, wallets, wagers, outbox, ids, clock);
+    processWager = new ProcessWagerUseCase(transactions, wallets, wagers, outbox, ids, clock);
   });
 
   beforeEach(async () => {
@@ -54,6 +56,7 @@ describe('ProcessWagerUseCase', () => {
         initialBalance: Money.from({ amount: '100.00', currency: 'BRL' }),
       })
     ).id;
+    await orm.em.getConnection().execute('truncate outbox_messages');
   });
 
   afterAll(async () => {
@@ -119,6 +122,12 @@ describe('ProcessWagerUseCase', () => {
     expect(result.balance.amount).toBe('100.00');
     expect(await count('wager_transactions')).toBe('2');
     expect(await count('wallet_ledger_entries')).toBe('1');
+    expect(await outboxTypes()).toEqual(['WagerRejected']);
+  });
+
+  test('atomically queues processed and balance-changed events', async () => {
+    await processWager.execute(command('event-bet', WagerTransactionKind.Bet, '25.00'));
+    expect(await outboxTypes()).toEqual(['WagerProcessed', 'WalletBalanceChanged']);
   });
 
   test('returns the original observed balance on idempotent replay', async () => {
@@ -187,5 +196,12 @@ describe('ProcessWagerUseCase', () => {
       .getConnection()
       .execute<{ count: string }[]>(`select count(*)::text as count from ${table}`);
     return rows[0]?.count ?? 'missing';
+  }
+
+  async function outboxTypes(): Promise<string[]> {
+    const rows = await orm.em.getConnection().execute<{ event_type: string }[]>(
+      'select event_type from outbox_messages order by occurred_at, event_type',
+    );
+    return rows.map((row) => row.event_type);
   }
 });
