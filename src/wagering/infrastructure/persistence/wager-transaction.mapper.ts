@@ -21,12 +21,16 @@ export class WagerTransactionMapper {
       gameId: record.gameId,
       kind: record.kind as WagerTransactionKind,
       money: Money.from({ amount: record.amount, currency: record.currency }),
-      referenceExternalTransactionId: record.referenceExternalTransactionId,
+      referenceExternalTransactionId: record.referenceExternalTransactionId ?? undefined,
       createdAt: record.createdAt,
       status: record.status as WagerTransactionStatus,
-      referenceTransactionId: record.referenceTransactionId,
-      failureCode: record.failureCode as FailureCode | undefined,
-      processedAt: record.processedAt,
+      referenceTransactionId: record.referenceTransactionId ?? undefined,
+      failureCode: (record.failureCode as FailureCode | null | undefined) ?? undefined,
+      processedAt: record.processedAt ?? undefined,
+      resultBalance:
+        record.resultBalance == null || record.resultCurrency == null
+          ? undefined
+          : Money.from({ amount: record.resultBalance, currency: record.resultCurrency }),
     });
   }
 
@@ -48,8 +52,8 @@ export class WagerTransactionMapper {
     record.referenceTransactionId = transaction.referenceTransactionId;
     record.status = transaction.status;
     record.failureCode = transaction.failureCode;
-    record.resultBalance = undefined;
-    record.resultCurrency = undefined;
+    record.resultBalance = transaction.resultBalance?.toJSON().amount;
+    record.resultCurrency = transaction.resultBalance?.currency;
     record.pendingAttempts = 0;
     record.nextAttemptAt = undefined;
     record.processedAt = transaction.processedAt;

@@ -29,6 +29,18 @@ export class MikroOrmWagerTransactionRepository implements WagerTransactionRepos
     return this.findOne({ providerId, externalTransactionId }, context);
   }
 
+  async findProcessedReversals(
+    referenceTransactionId: string,
+    context?: TransactionContext,
+  ): Promise<WagerTransaction[]> {
+    const manager = context === undefined ? this.entityManager.fork() : entityManagerFrom(context);
+    const records = await manager.find(WagerTransactionRecord, {
+      referenceTransactionId,
+      status: 'PROCESSED',
+    });
+    return records.map(WagerTransactionMapper.toDomain);
+  }
+
   async save(transaction: WagerTransaction, context: TransactionContext): Promise<void> {
     await entityManagerFrom(context).upsert(
       WagerTransactionRecord,

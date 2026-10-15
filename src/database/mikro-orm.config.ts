@@ -1,4 +1,4 @@
-import type { Options } from '@mikro-orm/postgresql';
+import { PostgreSqlDriver, type Options } from '@mikro-orm/postgresql';
 import { Migrator } from '@mikro-orm/migrations';
 
 import { Migration202610150001 } from './migrations/Migration202610150001';
@@ -18,6 +18,7 @@ export interface DatabaseConnectionOptions {
 
 export function createMikroOrmConfig(connection?: DatabaseConnectionOptions): Options {
   return {
+    driver: PostgreSqlDriver,
     host: connection?.host ?? process.env.POSTGRES_HOST ?? '127.0.0.1',
     port: connection?.port ?? Number(process.env.POSTGRES_PORT ?? '5432'),
     dbName: connection?.dbName ?? process.env.POSTGRES_DB ?? 'wagering',

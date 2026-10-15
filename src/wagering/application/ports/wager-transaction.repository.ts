@@ -12,5 +12,9 @@ export interface WagerTransactionRepository {
     externalTransactionId: string,
     context?: TransactionContext,
   ): Promise<WagerTransaction | null>;
+  findProcessedReversals(
+    referenceTransactionId: string,
+    context?: TransactionContext,
+  ): Promise<WagerTransaction[]>;
   save(transaction: WagerTransaction, context: TransactionContext): Promise<void>;
 }

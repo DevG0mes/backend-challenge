@@ -41,6 +41,7 @@ export interface WagerTransactionState extends CreateWagerTransactionProps {
   referenceTransactionId: string | undefined;
   failureCode: FailureCode | undefined;
   processedAt: Date | undefined;
+  resultBalance: Money | undefined;
 }
 
 export class WagerTransaction {
@@ -49,6 +50,7 @@ export class WagerTransaction {
   private _referenceTransactionId: string | undefined;
   private _failureCode: FailureCode | undefined;
   private _processedAt: Date | undefined;
+  private _resultBalance: Money | undefined;
 
   private constructor(
     public readonly id: string,
@@ -68,12 +70,14 @@ export class WagerTransaction {
     referenceTransactionId: string | undefined,
     failureCode: FailureCode | undefined,
     processedAt: Date | undefined,
+    resultBalance: Money | undefined,
   ) {
     this._createdAt = new Date(createdAt);
     this._status = status;
     this._referenceTransactionId = referenceTransactionId;
     this._failureCode = failureCode;
     this._processedAt = processedAt === undefined ? undefined : new Date(processedAt);
+    this._resultBalance = resultBalance;
   }
 
   static create(props: CreateWagerTransactionProps): WagerTransaction {
@@ -106,6 +110,7 @@ export class WagerTransaction {
       undefined,
       undefined,
       undefined,
+      undefined,
     );
   }
 
@@ -128,6 +133,7 @@ export class WagerTransaction {
       state.referenceTransactionId,
       state.failureCode,
       state.processedAt,
+      state.resultBalance,
     );
   }
 
@@ -151,7 +157,15 @@ export class WagerTransaction {
     return this._processedAt === undefined ? undefined : new Date(this._processedAt);
   }
 
-  markProcessed(referenceTransactionId: string | undefined, at: Date): void {
+  get resultBalance(): Money | undefined {
+    return this._resultBalance;
+  }
+
+  markProcessed(
+    referenceTransactionId: string | undefined,
+    at: Date,
+    resultBalance?: Money,
+  ): void {
     this.assertNotTerminal();
 
     if (this.requiresReference() && referenceTransactionId === undefined) {
@@ -161,9 +175,10 @@ export class WagerTransaction {
     this._status = WagerTransactionStatus.Processed;
     this._referenceTransactionId = referenceTransactionId;
     this._processedAt = new Date(at);
+    this._resultBalance = resultBalance;
   }
 
-  markPendingReference(): void {
+  markPendingReference(resultBalance?: Money): void {
     this.assertNotTerminal();
 
     if (this._status !== WagerTransactionStatus.Pending) {
@@ -174,12 +189,14 @@ export class WagerTransaction {
     }
 
     this._status = WagerTransactionStatus.PendingReference;
+    this._resultBalance = resultBalance;
   }
 
-  reject(code: FailureCode): void {
+  reject(code: FailureCode, resultBalance?: Money): void {
     this.assertNotTerminal();
     this._status = WagerTransactionStatus.Rejected;
     this._failureCode = code;
+    this._resultBalance = resultBalance;
   }
 
   fail(code: FailureCode): void {
