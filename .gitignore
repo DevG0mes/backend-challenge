@@ -3,6 +3,7 @@ dist/
 .env
 coverage/
 *.tsbuildinfo
+.snapshot-*.json
 *.log
 .idea/
 .vscode/
