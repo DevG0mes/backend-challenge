@@ -9,7 +9,8 @@ export type DomainErrorCode =
   | 'REFERENCE_REQUIRED'
   | 'INVALID_TRANSACTION_STATE'
   | 'INVALID_REFERENCE_KIND'
-  | 'OUTBOX_ALREADY_PUBLISHED';
+  | 'OUTBOX_ALREADY_PUBLISHED'
+  | 'INBOX_ALREADY_COMPLETED';
 
 export class DomainError extends Error {
   constructor(

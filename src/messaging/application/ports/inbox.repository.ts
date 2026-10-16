@@ -12,7 +12,7 @@ export interface InboxRepository {
   find(
     consumerName: string,
     messageId: string,
-    context: TransactionContext,
+    context?: TransactionContext,
   ): Promise<InboxRecordData | null>;
   insert(message: InboxRecordData, context: TransactionContext): Promise<void>;
   markProcessed(

@@ -23,6 +23,8 @@ services:
       DEBUG: ${LOCALSTACK_DEBUG:-0}
     ports:
       - "${LOCALSTACK_EXPOSED_PORT:-4566}:4566"
+    volumes:
+      - ./scripts/localstack:/etc/localstack/init/ready.d:ro
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:4566/_localstack/health | grep -q '\"sqs\": \"available\"'"]
       interval: 5s

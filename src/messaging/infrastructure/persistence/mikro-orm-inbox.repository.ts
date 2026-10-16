@@ -11,9 +11,10 @@ export class MikroOrmInboxRepository implements InboxRepository {
   async find(
     consumerName: string,
     messageId: string,
-    context: TransactionContext,
+    context?: TransactionContext,
   ): Promise<InboxRecordData | null> {
-    const record = await entityManagerFrom(context).findOne(InboxMessageRecord, {
+    const manager = context === undefined ? this.entityManager.fork() : entityManagerFrom(context);
+    const record = await manager.findOne(InboxMessageRecord, {
       consumerName,
       messageId,
     });

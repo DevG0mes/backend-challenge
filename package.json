@@ -11,9 +11,11 @@
     "test": "bun test",
     "test:unit": "bun test ./test/unit",
     "test:integration": "bun test ./test/integration",
-    "test:e2e": "bun test ./test/health ./test/e2e"
+    "test:e2e": "bun test ./test/health ./test/e2e",
+    "test:report": "bun test --reporter=junit --reporter-outfile=reports/junit.xml"
   },
   "dependencies": {
+    "@aws-sdk/client-sqs": "3.1152.0",
     "@mikro-orm/core": "7.2.5",
     "@mikro-orm/migrations": "7.2.5",
     "@mikro-orm/nestjs": "7.1.0",

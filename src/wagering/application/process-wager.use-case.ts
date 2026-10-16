@@ -1,4 +1,4 @@
-import type { TransactionRunner } from '../../database/transaction-runner';
+import type { TransactionContext, TransactionRunner } from '../../database/transaction-runner';
 import { ApplicationError } from '../../shared/application/application.error';
 import { hashBusinessPayload } from '../../shared/application/canonical-json';
 import type { Clock } from '../../shared/application/clock';
@@ -51,11 +51,27 @@ export class ProcessWagerUseCase {
     private readonly clock: Clock,
   ) {}
 
-  async execute(command: ProcessWagerCommand): Promise<ProcessWagerResult> {
+  async execute(command: ProcessWagerCommand, context?: TransactionContext): Promise<ProcessWagerResult> {
     const payloadHash = this.payloadHash(command);
 
+    if (context !== undefined) return this.executeInContext(command, payloadHash, context);
+
     try {
-      return await this.transactions.run(async (context) => {
+      return await this.transactions.run((transactionContext) =>
+        this.executeInContext(command, payloadHash, transactionContext),
+      );
+    } catch (error) {
+      const existing = await this.wagers.findByIdempotencyKey(command.idempotencyKey);
+      if (existing !== null) return this.replay(existing, payloadHash);
+      throw error;
+    }
+  }
+
+  private async executeInContext(
+    command: ProcessWagerCommand,
+    payloadHash: string,
+    context: TransactionContext,
+  ): Promise<ProcessWagerResult> {
         const existing = await this.wagers.findByIdempotencyKey(command.idempotencyKey, context);
         if (existing !== null) return this.replay(existing, payloadHash);
 
@@ -132,12 +148,6 @@ export class ProcessWagerUseCase {
 
         await this.wagers.save(transaction, context);
         return this.result(transaction, wallet.balance.toJSON(), false);
-      });
-    } catch (error) {
-      const existing = await this.wagers.findByIdempotencyKey(command.idempotencyKey);
-      if (existing !== null) return this.replay(existing, payloadHash);
-      throw error;
-    }
   }
 
   private replay(transaction: WagerTransaction, payloadHash: string): ProcessWagerResult {
