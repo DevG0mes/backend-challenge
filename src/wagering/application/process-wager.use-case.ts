@@ -19,6 +19,8 @@ import {
   WagerTransactionStatus,
 } from '../domain/wager-transaction';
 import type { WagerTransactionRepository } from './ports/wager-transaction.repository';
+import type { OperationalMetrics } from '../../shared/observability/metrics';
+import type { StructuredLogger } from '../../shared/observability/logger';
 
 export interface ProcessWagerCommand {
   providerId: string;
@@ -49,20 +51,33 @@ export class ProcessWagerUseCase {
     private readonly outbox: OutboxRepository,
     private readonly ids: IdGenerator,
     private readonly clock: Clock,
+    private readonly metrics?: OperationalMetrics,
+    private readonly logger?: StructuredLogger,
   ) {}
 
   async execute(command: ProcessWagerCommand, context?: TransactionContext): Promise<ProcessWagerResult> {
+    const startedAt = Date.now();
     const payloadHash = this.payloadHash(command);
 
-    if (context !== undefined) return this.executeInContext(command, payloadHash, context);
+    if (context !== undefined) {
+      const result = await this.executeInContext(command, payloadHash, context);
+      this.record(command, result, startedAt);
+      return result;
+    }
 
     try {
-      return await this.transactions.run((transactionContext) =>
+      const result = await this.transactions.run((transactionContext) =>
         this.executeInContext(command, payloadHash, transactionContext),
       );
+      this.record(command, result, startedAt);
+      return result;
     } catch (error) {
       const existing = await this.wagers.findByIdempotencyKey(command.idempotencyKey);
-      if (existing !== null) return this.replay(existing, payloadHash);
+      if (existing !== null) {
+        const result = this.replay(existing, payloadHash);
+        this.record(command, result, startedAt);
+        return result;
+      }
       throw error;
     }
   }
@@ -75,7 +90,9 @@ export class ProcessWagerUseCase {
         const existing = await this.wagers.findByIdempotencyKey(command.idempotencyKey, context);
         if (existing !== null) return this.replay(existing, payloadHash);
 
+        const lockStartedAt = Date.now();
         const wallet = await this.wallets.findOneForUpdate(command.walletId, context);
+        this.metrics?.observe('wallet_lock_wait_ms', Date.now() - lockStartedAt);
         if (wallet === null) {
           throw new ApplicationError('WALLET_NOT_FOUND', `Wallet ${command.walletId} was not found`);
         }
@@ -157,7 +174,22 @@ export class ProcessWagerUseCase {
     if (transaction.resultBalance === undefined) {
       throw new ApplicationError('MISSING_RESULT_BALANCE', 'Stored transaction has no balance snapshot');
     }
+    this.metrics?.increment('wager_duplicates_total');
     return this.result(transaction, transaction.resultBalance.toJSON(), true);
+  }
+
+  private record(command: ProcessWagerCommand, result: ProcessWagerResult, startedAt: number): void {
+    this.metrics?.increment('wager_transactions_total', { status: result.status, kind: command.kind });
+    this.metrics?.observe('wager_processing_latency_ms', Date.now() - startedAt, { kind: command.kind });
+    this.logger?.info('wager transaction completed', {
+      correlationId: command.idempotencyKey,
+      transactionId: result.transactionId,
+      walletId: command.walletId,
+      providerId: command.providerId,
+      status: result.status,
+      kind: command.kind,
+      idempotentReplay: result.idempotentReplay,
+    });
   }
 
   private result(

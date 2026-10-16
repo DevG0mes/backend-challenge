@@ -51,6 +51,31 @@ export class MikroOrmWalletRepository implements WalletRepository {
     return records.map(LedgerEntryMapper.toDomain);
   }
 
+  async listLedgerPage(
+    walletId: string,
+    after: { createdAt: Date; id: string } | undefined,
+    limit: number,
+    context?: TransactionContext,
+  ): Promise<{ entries: WalletLedgerEntry[]; hasMore: boolean }> {
+    const cursorFilter = after === undefined
+      ? {}
+      : {
+          $or: [
+            { createdAt: { $gt: after.createdAt } },
+            { createdAt: after.createdAt, id: { $gt: after.id } },
+          ],
+        };
+    const records = await this.manager(context).find(
+      LedgerEntryRecord,
+      { walletId, ...cursorFilter },
+      { limit: limit + 1, orderBy: { createdAt: QueryOrder.ASC, id: QueryOrder.ASC } },
+    );
+    return {
+      entries: records.slice(0, limit).map(LedgerEntryMapper.toDomain),
+      hasMore: records.length > limit,
+    };
+  }
+
   private manager(context?: TransactionContext): EntityManager {
     return context === undefined ? this.entityManager.fork() : entityManagerFrom(context);
   }

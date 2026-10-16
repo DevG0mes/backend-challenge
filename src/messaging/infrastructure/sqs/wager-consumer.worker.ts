@@ -2,6 +2,7 @@ import { ApplicationError } from '../../../shared/application/application.error'
 import type { WagerMessageEnvelope } from '../../application/consume-wager-message.use-case';
 import { classifyConsumerError } from './error-classifier';
 import type { ReceivedSqsMessage, SqsTransport } from './sqs.client';
+import type { OperationalMetrics } from '../../../shared/observability/metrics';
 
 export interface WagerMessageHandler {
   execute(envelope: WagerMessageEnvelope): Promise<unknown>;
@@ -21,6 +22,7 @@ export class WagerConsumerWorker {
     private readonly transport: SqsTransport,
     private readonly handler: WagerMessageHandler,
     private readonly options: WagerConsumerOptions,
+    private readonly metrics?: OperationalMetrics,
   ) {}
 
   start(): void {
@@ -56,9 +58,11 @@ export class WagerConsumerWorker {
     } catch (error) {
       if (classifyConsumerError(error) === 'PERMANENT' || message.receiveCount >= this.options.maxReceiveCount) {
         await this.transport.moveToDlq(message);
+        this.metrics?.increment('sqs_dlq_messages_total', { consumer: 'wager' });
         return 'DLQ';
       }
       await this.transport.retry(message);
+      this.metrics?.increment('sqs_retries_total', { consumer: 'wager' });
       return 'RETRY';
     }
   }

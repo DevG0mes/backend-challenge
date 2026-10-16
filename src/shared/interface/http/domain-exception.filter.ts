@@ -18,7 +18,11 @@ export class DomainExceptionFilter implements ExceptionFilter {
     if (error instanceof ApplicationError) {
       const status = error.code === 'IDEMPOTENCY_CONFLICT'
         ? HttpStatus.CONFLICT
-        : error.code === 'WALLET_NOT_FOUND' ? HttpStatus.NOT_FOUND : HttpStatus.INTERNAL_SERVER_ERROR;
+        : error.code === 'WALLET_NOT_FOUND' || error.code === 'TRANSACTION_NOT_FOUND'
+          ? HttpStatus.NOT_FOUND
+          : error.code === 'INVALID_CURSOR' || error.code === 'INVALID_PAGE_LIMIT'
+            ? HttpStatus.BAD_REQUEST
+            : HttpStatus.INTERNAL_SERVER_ERROR;
       response.status(status).json({ code: error.code, message: error.message });
       return;
     }

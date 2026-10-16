@@ -14,6 +14,7 @@ import {
   type WagerTransaction,
 } from '../domain/wager-transaction';
 import type { WagerTransactionRepository } from './ports/wager-transaction.repository';
+import type { OperationalMetrics } from '../../shared/observability/metrics';
 
 export interface PendingReferenceOptions extends PendingReferenceRetryPolicy {
   leaseMs: number;
@@ -34,6 +35,7 @@ export class ReprocessPendingReferencesUseCase {
     private readonly outbox: OutboxRepository,
     private readonly ids: IdGenerator,
     private readonly options: PendingReferenceOptions,
+    private readonly metrics?: OperationalMetrics,
   ) {}
 
   async execute(now: Date, batchSize: number): Promise<ReprocessPendingReferencesResult> {
@@ -84,6 +86,7 @@ export class ReprocessPendingReferencesUseCase {
         return 'rejected';
       }
       await this.wagers.save(transaction, context);
+      this.metrics?.increment('pending_reference_retries_total', { kind: transaction.kind });
       return 'rescheduled';
     }
 

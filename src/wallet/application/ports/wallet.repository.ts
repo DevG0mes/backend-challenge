@@ -8,4 +8,10 @@ export interface WalletRepository {
   save(wallet: Wallet, context: TransactionContext): Promise<void>;
   appendLedger(entry: WalletLedgerEntry, context: TransactionContext): Promise<void>;
   listLedger(walletId: string, context?: TransactionContext): Promise<WalletLedgerEntry[]>;
+  listLedgerPage(
+    walletId: string,
+    after: { createdAt: Date; id: string } | undefined,
+    limit: number,
+    context?: TransactionContext,
+  ): Promise<{ entries: WalletLedgerEntry[]; hasMore: boolean }>;
 }

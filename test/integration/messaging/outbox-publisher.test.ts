@@ -8,6 +8,7 @@ import { PublishOutboxBatchUseCase, type OutboxEventPublisher } from '../../../s
 import type { OutboxRecordData } from '../../../src/messaging/application/ports/outbox.repository';
 import { MikroOrmOutboxRepository } from '../../../src/messaging/infrastructure/persistence/mikro-orm-outbox.repository';
 import { SqsOutboxEventPublisher } from '../../../src/messaging/infrastructure/sqs/sqs-outbox-event.publisher';
+import { InMemoryMetrics } from '../../../src/shared/observability/metrics';
 
 const NOW = new Date('2026-10-16T12:00:00.000Z');
 
@@ -17,6 +18,7 @@ describe('concurrent outbox publisher', () => {
   let repository: MikroOrmOutboxRepository;
   let aws: SQSClient;
   let eventQueueUrl: string;
+  let metrics: InMemoryMetrics;
 
   beforeAll(async () => {
     orm = await MikroORM.init(createMikroOrmConfig({ host: '127.0.0.1', port: Number(process.env.TEST_POSTGRES_PORT ?? '55432'), dbName: 'wagering', user: 'wagering', password: 'wagering' }));
@@ -28,6 +30,7 @@ describe('concurrent outbox publisher', () => {
   });
 
   beforeEach(async () => {
+    metrics = new InMemoryMetrics();
     await orm.em.getConnection().execute('truncate outbox_messages, inbox_messages, wallet_ledger_entries, wager_transactions, wallets cascade');
     await aws.send(new PurgeQueueCommand({ QueueUrl: eventQueueUrl }));
   });
@@ -38,6 +41,7 @@ describe('concurrent outbox publisher', () => {
     const target = new RecordingPublisher();
     const result = await useCase(target).execute(NOW, 10);
     expect(result).toEqual({ claimed: 1, published: 1, failed: 0, oldestLagMs: 5_000 });
+    expect(metrics.gauge('outbox_lag_seconds')).toBe(5);
     expect(target.ids).toEqual(['0192f299-345e-7e38-af88-e43f851a8101']);
     expect(await publishedCount()).toBe('1');
   });
@@ -57,6 +61,7 @@ describe('concurrent outbox publisher', () => {
     await seed(message('0192f299-345e-7e38-af88-e43f851a8120', 0));
     const result = await useCase(new RecordingPublisher(0, true)).execute(NOW, 10);
     expect(result.failed).toBe(1);
+    expect(metrics.counter('outbox_retries_total', { eventType: 'WagerProcessed' })).toBe(1);
     const rows = await orm.em.getConnection().execute<{ attempts: number; next_attempt_at: Date }[]>('select attempts, next_attempt_at from outbox_messages');
     expect(rows[0]?.attempts).toBe(1);
     expect(new Date(rows[0]!.next_attempt_at).toISOString()).toBe('2026-10-16T12:00:01.000Z');
@@ -87,7 +92,7 @@ describe('concurrent outbox publisher', () => {
   });
 
   function useCase(target: OutboxEventPublisher): PublishOutboxBatchUseCase {
-    return new PublishOutboxBatchUseCase(transactions, repository, target, { baseRetryMs: 1_000, maxRetryMs: 60_000, leaseMs: 30_000 });
+    return new PublishOutboxBatchUseCase(transactions, repository, target, { baseRetryMs: 1_000, maxRetryMs: 60_000, leaseMs: 30_000 }, metrics);
   }
 
   async function seed(data: OutboxRecordData): Promise<void> {

@@ -10,6 +10,7 @@ import { MikroOrmOutboxRepository } from '../../../src/messaging/infrastructure/
 import { AwsSqsClient } from '../../../src/messaging/infrastructure/sqs/sqs.client';
 import { WagerConsumerWorker } from '../../../src/messaging/infrastructure/sqs/wager-consumer.worker';
 import { RandomIdGenerator } from '../../../src/shared/application/id-generator';
+import { InMemoryMetrics } from '../../../src/shared/observability/metrics';
 import { Money } from '../../../src/shared/domain/money/money';
 import { CreateWalletUseCase } from '../../../src/wallet/application/create-wallet.use-case';
 import { MikroOrmWalletRepository } from '../../../src/wallet/infrastructure/persistence/mikro-orm-wallet.repository';
@@ -27,6 +28,7 @@ describe('LocalStack SQS wager consumer', () => {
   let orm: MikroORM;
   let consume: ConsumeWagerMessageUseCase;
   let walletId: string;
+  let metrics: InMemoryMetrics;
 
   beforeAll(async () => {
     dlqUrl = (await aws.send(new CreateQueueCommand({ QueueName: 'wager-transactions-dlq-test.fifo', Attributes: { FifoQueue: 'true', ContentBasedDeduplication: 'true' } }))).QueueUrl!;
@@ -49,6 +51,7 @@ describe('LocalStack SQS wager consumer', () => {
   });
 
   beforeEach(async () => {
+    metrics = new InMemoryMetrics();
     await aws.send(new PurgeQueueCommand({ QueueUrl: queueUrl }));
     await aws.send(new PurgeQueueCommand({ QueueUrl: dlqUrl }));
   });
@@ -66,6 +69,7 @@ describe('LocalStack SQS wager consumer', () => {
     await send('{not-json');
     const worker = workerFor(consume);
     expect(await worker.processNext()).toBe('DLQ');
+    expect(metrics.counter('sqs_dlq_messages_total', { consumer: 'wager' })).toBe(1);
     const dlq = new AwsSqsClient(aws, dlqUrl, dlqUrl);
     expect((await dlq.receiveOne())?.body).toBe('{not-json');
   });
@@ -89,6 +93,8 @@ describe('LocalStack SQS wager consumer', () => {
     expect(await worker.processNext()).toBe('RETRY');
     expect(await worker.processNext()).toBe('RETRY');
     expect(await worker.processNext()).toBe('DLQ');
+    expect(metrics.counter('sqs_retries_total', { consumer: 'wager' })).toBe(2);
+    expect(metrics.counter('sqs_dlq_messages_total', { consumer: 'wager' })).toBe(1);
   });
 
   test('redelivery after commit-before-ack is an idempotent acknowledgement', async () => {
@@ -130,7 +136,7 @@ describe('LocalStack SQS wager consumer', () => {
   });
 
   function workerFor(handler: { execute(envelope: WagerMessageEnvelope): Promise<unknown> }): WagerConsumerWorker {
-    return new WagerConsumerWorker(new AwsSqsClient(aws, queueUrl, dlqUrl), handler, { maxReceiveCount: 3 });
+    return new WagerConsumerWorker(new AwsSqsClient(aws, queueUrl, dlqUrl), handler, { maxReceiveCount: 3 }, metrics);
   }
 
   async function send(body: string): Promise<void> {

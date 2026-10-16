@@ -1,5 +1,6 @@
-import { BadRequestException, Body, Controller, Headers, HttpCode, Post, Res, UnprocessableEntityException, UseFilters } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Headers, HttpCode, Param, Post, Res, UnprocessableEntityException, UseFilters } from '@nestjs/common';
 import { DomainExceptionFilter } from '../../../shared/interface/http/domain-exception.filter';
+import { GetWagerTransactionUseCase } from '../../application/get-wager-transaction.use-case';
 import { ProcessWagerUseCase, type ProcessWagerResult } from '../../application/process-wager.use-case';
 import { WagerTransactionStatus } from '../../domain/wager-transaction';
 import { parseProcessWager } from './process-wager.dto';
@@ -11,7 +12,15 @@ interface StatusResponse {
 @Controller('wagering/transactions')
 @UseFilters(DomainExceptionFilter)
 export class WageringController {
-  constructor(private readonly processWager: ProcessWagerUseCase) {}
+  constructor(
+    private readonly processWager: ProcessWagerUseCase,
+    private readonly getTransaction: GetWagerTransactionUseCase,
+  ) {}
+
+  @Get(':transactionId')
+  get(@Param('transactionId') transactionId: string) {
+    return this.getTransaction.byId(transactionId);
+  }
 
   @Post()
   @HttpCode(201)
@@ -29,5 +38,19 @@ export class WageringController {
     }
     if (result.status === WagerTransactionStatus.PendingReference) response.status(202);
     return result;
+  }
+}
+
+@Controller('providers')
+@UseFilters(DomainExceptionFilter)
+export class ProviderWageringController {
+  constructor(private readonly getTransaction: GetWagerTransactionUseCase) {}
+
+  @Get(':providerId/wagering/transactions/:externalTransactionId')
+  get(
+    @Param('providerId') providerId: string,
+    @Param('externalTransactionId') externalTransactionId: string,
+  ) {
+    return this.getTransaction.byProviderExternal(providerId, externalTransactionId);
   }
 }

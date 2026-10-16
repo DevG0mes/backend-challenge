@@ -1,5 +1,6 @@
 import type { TransactionRunner } from '../../database/transaction-runner';
 import type { OutboxRecordData, OutboxRepository } from './ports/outbox.repository';
+import type { OperationalMetrics } from '../../shared/observability/metrics';
 
 export interface OutboxEventPublisher {
   publish(message: OutboxRecordData): Promise<void>;
@@ -24,6 +25,7 @@ export class PublishOutboxBatchUseCase {
     private readonly outbox: OutboxRepository,
     private readonly publisher: OutboxEventPublisher,
     private readonly options: PublishOutboxOptions,
+    private readonly metrics?: OperationalMetrics,
   ) {}
 
   async execute(now: Date, batchSize: number): Promise<PublishBatchResult> {
@@ -39,6 +41,7 @@ export class PublishOutboxBatchUseCase {
         ? 0
         : Math.max(...claimed.map((message) => Math.max(0, now.getTime() - message.occurredAt.getTime()))),
     };
+    this.metrics?.setGauge('outbox_lag_seconds', result.oldestLagMs / 1_000);
 
     for (const message of claimed) {
       try {
@@ -54,6 +57,7 @@ export class PublishOutboxBatchUseCase {
         );
         message.nextAttemptAt = new Date(now.getTime() + delay);
         result.failed += 1;
+        this.metrics?.increment('outbox_retries_total', { eventType: message.eventType });
       }
       await this.transactions.run((context) => this.outbox.save(message, context));
     }

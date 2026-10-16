@@ -15,6 +15,7 @@ import {
 import { WagerTransactionKind, WagerTransactionStatus } from '../../../src/wagering/domain/wager-transaction';
 import { MikroOrmWagerTransactionRepository } from '../../../src/wagering/infrastructure/persistence/mikro-orm-wager-transaction.repository';
 import { MikroOrmOutboxRepository } from '../../../src/messaging/infrastructure/persistence/mikro-orm-outbox.repository';
+import { InMemoryMetrics } from '../../../src/shared/observability/metrics';
 
 const PLAYER_ID = '0192f28f-5dc0-7d58-bdb2-814ad6a0f4a1';
 const NOW = new Date('2026-10-15T12:00:00.000Z');
@@ -25,6 +26,7 @@ describe('ProcessWagerUseCase', () => {
   let processWager: ProcessWagerUseCase;
   let createWallet: CreateWalletUseCase;
   let walletId: string;
+  let metrics: InMemoryMetrics;
 
   beforeAll(async () => {
     orm = await MikroORM.init(
@@ -43,7 +45,8 @@ describe('ProcessWagerUseCase', () => {
     const ids = new RandomIdGenerator();
     const outbox = new MikroOrmOutboxRepository(orm.em);
     createWallet = new CreateWalletUseCase(transactions, wallets, wagers, outbox, ids, clock);
-    processWager = new ProcessWagerUseCase(transactions, wallets, wagers, outbox, ids, clock);
+    metrics = new InMemoryMetrics();
+    processWager = new ProcessWagerUseCase(transactions, wallets, wagers, outbox, ids, clock, metrics);
   });
 
   beforeEach(async () => {
@@ -131,6 +134,7 @@ describe('ProcessWagerUseCase', () => {
   });
 
   test('returns the original observed balance on idempotent replay', async () => {
+    const duplicatesBefore = metrics.counter('wager_duplicates_total');
     const original = command('bet-1', WagerTransactionKind.Bet, '25.00');
     const first = await processWager.execute(original);
     await processWager.execute(command('win-1', WagerTransactionKind.Win, '10.00'));
@@ -141,6 +145,10 @@ describe('ProcessWagerUseCase', () => {
     expect(replay.balance.amount).toBe('75.00');
     expect(replay.transactionId).toBe(first.transactionId);
     expect(replay.idempotentReplay).toBeTrue();
+    expect(metrics.counter('wager_duplicates_total')).toBe(duplicatesBefore + 1);
+    expect(metrics.counter('wager_transactions_total', { status: 'PROCESSED', kind: 'BET' })).toBeGreaterThan(0);
+    expect(metrics.histogram('wager_processing_latency_ms', { kind: 'BET' }).length).toBeGreaterThan(0);
+    expect(metrics.histogram('wallet_lock_wait_ms').length).toBeGreaterThan(0);
     expect(await count('wallet_ledger_entries')).toBe('3');
   });
 
