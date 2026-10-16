@@ -8,7 +8,7 @@ export interface OperationalMetrics {
 
 export class InMemoryMetrics implements OperationalMetrics {
   private readonly counters = new Map<string, number>();
-  private readonly histograms = new Map<string, number[]>();
+  private readonly histograms = new Map<string, { count: number; sum: number; recent: number[] }>();
   private readonly gauges = new Map<string, number>();
 
   increment(name: string, labels: MetricLabels = {}, value = 1): void {
@@ -18,7 +18,12 @@ export class InMemoryMetrics implements OperationalMetrics {
 
   observe(name: string, value: number, labels: MetricLabels = {}): void {
     const key = this.key(name, labels);
-    this.histograms.set(key, [...(this.histograms.get(key) ?? []), value]);
+    const current = this.histograms.get(key) ?? { count: 0, sum: 0, recent: [] };
+    current.count += 1;
+    current.sum += value;
+    current.recent.push(value);
+    if (current.recent.length > 100) current.recent.shift();
+    this.histograms.set(key, current);
   }
 
   setGauge(name: string, value: number, labels: MetricLabels = {}): void {
@@ -30,7 +35,7 @@ export class InMemoryMetrics implements OperationalMetrics {
   }
 
   histogram(name: string, labels: MetricLabels = {}): readonly number[] {
-    return this.histograms.get(this.key(name, labels)) ?? [];
+    return this.histograms.get(this.key(name, labels))?.recent ?? [];
   }
 
   gauge(name: string, labels: MetricLabels = {}): number | undefined {
@@ -39,23 +44,26 @@ export class InMemoryMetrics implements OperationalMetrics {
 
   toPrometheus(): string {
     const families = new Map<string, { type: 'counter' | 'gauge' | 'histogram'; samples: string[] }>();
-    const add = (key: string, type: 'counter' | 'gauge' | 'histogram', values: readonly number[]) => {
+    const add = (key: string, type: 'counter' | 'gauge', value: number) => {
       const { name, labels } = this.decodeKey(key);
       const metricName = this.normalizeName(name);
       const labelText = this.renderLabels(labels);
       const family = families.get(metricName) ?? { type, samples: [] };
-      if (type === 'histogram') {
-        family.samples.push(`${metricName}_count${labelText} ${values.length}`);
-        family.samples.push(`${metricName}_sum${labelText} ${values.reduce((total, value) => total + value, 0)}`);
-      } else {
-        family.samples.push(`${metricName}${labelText} ${values[0]}`);
-      }
+      family.samples.push(`${metricName}${labelText} ${value}`);
       families.set(metricName, family);
     };
 
-    for (const [key, value] of this.counters) add(key, 'counter', [value]);
-    for (const [key, values] of this.histograms) add(key, 'histogram', values);
-    for (const [key, value] of this.gauges) add(key, 'gauge', [value]);
+    for (const [key, value] of this.counters) add(key, 'counter', value);
+    for (const [key, value] of this.gauges) add(key, 'gauge', value);
+    for (const [key, histogram] of this.histograms) {
+      const { name, labels } = this.decodeKey(key);
+      const metricName = this.normalizeName(name);
+      const labelText = this.renderLabels(labels);
+      const family = families.get(metricName) ?? { type: 'histogram' as const, samples: [] };
+      family.samples.push(`${metricName}_count${labelText} ${histogram.count}`);
+      family.samples.push(`${metricName}_sum${labelText} ${histogram.sum}`);
+      families.set(metricName, family);
+    }
 
     const lines: string[] = [];
     for (const [name, family] of [...families].sort(([left], [right]) => left.localeCompare(right))) {

@@ -114,14 +114,14 @@ export class ProcessWagerUseCase {
         if (decision.type === 'PENDING_REFERENCE') {
           transaction.markPendingReference(wallet.balance);
           await this.enqueue(new WagerPendingReferenceEvent({
-            ...this.eventMetadata(command, transaction.id, now),
+            ...this.eventMetadata(command, transaction.id, wallet.id, now),
             transactionId: transaction.id, walletId: wallet.id, providerId: command.providerId,
             referenceExternalTransactionId: command.referenceExternalTransactionId!, balance: wallet.balance.toJSON(),
           }), wallet.id, context);
         } else if (decision.type === 'REJECT') {
           transaction.reject(decision.failureCode, wallet.balance);
           await this.enqueue(new WagerRejectedEvent({
-            ...this.eventMetadata(command, transaction.id, now),
+            ...this.eventMetadata(command, transaction.id, wallet.id, now),
             transactionId: transaction.id, walletId: wallet.id, providerId: command.providerId,
             failureCode: decision.failureCode, balance: wallet.balance.toJSON(),
           }), wallet.id, context);
@@ -149,13 +149,13 @@ export class ProcessWagerUseCase {
           }
           transaction.markProcessed(decision.referenceTransactionId, now, wallet.balance);
           await this.enqueue(new WagerProcessedEvent({
-            ...this.eventMetadata(command, transaction.id, now),
+            ...this.eventMetadata(command, transaction.id, wallet.id, now),
             transactionId: transaction.id, walletId: wallet.id, providerId: command.providerId,
             status: transaction.status, balance: wallet.balance.toJSON(),
           }), wallet.id, context);
           if (balanceChange !== undefined && !balanceChange.balanceBefore.equals(balanceChange.balanceAfter)) {
             await this.enqueue(new WalletBalanceChangedEvent({
-              ...this.eventMetadata(command, transaction.id, now),
+              ...this.eventMetadata(command, transaction.id, wallet.id, now),
               transactionId: transaction.id, walletId: wallet.id,
               balanceBefore: balanceChange.balanceBefore.toJSON(), balanceAfter: balanceChange.balanceAfter.toJSON(),
               walletVersion: balanceChange.version,
@@ -220,8 +220,8 @@ export class ProcessWagerUseCase {
     });
   }
 
-  private eventMetadata(command: ProcessWagerCommand, causationId: string, occurredAt: Date) {
-    return { id: this.ids.next(), occurredAt, correlationId: command.idempotencyKey, causationId };
+  private eventMetadata(command: ProcessWagerCommand, causationId: string, aggregateId: string, occurredAt: Date) {
+    return { id: this.ids.next(), aggregateId, occurredAt, correlationId: command.idempotencyKey, causationId };
   }
 
   private enqueue(
@@ -231,7 +231,7 @@ export class ProcessWagerUseCase {
   ): Promise<void> {
     const payload = event.toJSON();
     return this.outbox.insert({
-      id: event.id, aggregateId, eventType: payload.type, payload,
+      id: event.id, aggregateId, eventType: payload.eventType, payload,
       occurredAt: event.occurredAt, attempts: 0, nextAttemptAt: undefined, publishedAt: undefined,
     }, context);
   }

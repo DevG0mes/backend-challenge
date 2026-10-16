@@ -1,5 +1,6 @@
 export interface IntegrationEventProps<TData extends Record<string, unknown>> {
   id: string;
+  aggregateId: string;
   occurredAt: Date;
   correlationId: string;
   causationId: string;
@@ -7,8 +8,9 @@ export interface IntegrationEventProps<TData extends Record<string, unknown>> {
 }
 
 export interface IntegrationEventJson<TData extends Record<string, unknown>> extends Record<string, unknown> {
-  id: string;
-  type: string;
+  eventId: string;
+  eventType: string;
+  aggregateId: string;
   version: number;
   occurredAt: string;
   correlationId: string;
@@ -27,8 +29,9 @@ export abstract class IntegrationEvent<TData extends Record<string, unknown>> {
 
   toJSON(): IntegrationEventJson<TData> {
     return {
-      id: this.props.id,
-      type: this.type,
+      eventId: this.props.id,
+      eventType: this.type,
+      aggregateId: this.props.aggregateId,
       version: this.version,
       occurredAt: this.props.occurredAt.toISOString(),
       correlationId: this.props.correlationId,

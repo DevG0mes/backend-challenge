@@ -125,12 +125,12 @@ describe('ProcessWagerUseCase', () => {
     expect(result.balance.amount).toBe('100.00');
     expect(await count('wager_transactions')).toBe('2');
     expect(await count('wallet_ledger_entries')).toBe('1');
-    expect(await outboxTypes()).toEqual(['WagerRejected']);
+    expect(await outboxTypes()).toEqual(['WagerTransactionRejected']);
   });
 
   test('atomically queues processed and balance-changed events', async () => {
     await processWager.execute(command('event-bet', WagerTransactionKind.Bet, '25.00'));
-    expect(await outboxTypes()).toEqual(['WagerProcessed', 'WalletBalanceChanged']);
+    expect(await outboxTypes()).toEqual(['WagerTransactionProcessed', 'WalletBalanceChanged']);
   });
 
   test('returns the original observed balance on idempotent replay', async () => {

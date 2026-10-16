@@ -48,6 +48,11 @@ describe('query and reconciliation HTTP API', () => {
     await request(app.getHttpServer()).get(`/wagering/transactions/${missing}`).expect(404);
   });
 
+  test('rejects malformed database identifiers before querying PostgreSQL', async () => {
+    await request(app.getHttpServer()).get('/wallets/not-a-uuid').expect(400);
+    await request(app.getHttpServer()).get('/wagering/transactions/not-a-uuid').expect(400);
+  });
+
   test('reports PostgreSQL and SQS readiness separately from liveness', async () => {
     expect((await request(app.getHttpServer()).get('/health/live').expect(200)).body).toEqual({ status: 'ok' });
     expect((await request(app.getHttpServer()).get('/health/ready').expect(200)).body).toEqual({

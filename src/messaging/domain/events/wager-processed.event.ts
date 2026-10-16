@@ -3,6 +3,7 @@ import { IntegrationEvent } from '../integration-event';
 
 export interface WagerProcessedEventProps {
   id: string;
+  aggregateId: string;
   occurredAt: Date;
   correlationId: string;
   causationId: string;
@@ -22,12 +23,13 @@ interface WagerProcessedData extends Record<string, unknown> {
 }
 
 export class WagerProcessedEvent extends IntegrationEvent<WagerProcessedData> {
-  readonly type = 'WagerProcessed';
+  readonly type = 'WagerTransactionProcessed';
   readonly version = 1;
 
   constructor(props: WagerProcessedEventProps) {
     super({
       id: props.id,
+      aggregateId: props.aggregateId,
       occurredAt: props.occurredAt,
       correlationId: props.correlationId,
       causationId: props.causationId,

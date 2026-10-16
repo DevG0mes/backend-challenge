@@ -5,6 +5,7 @@ import { GetWagerTransactionUseCase } from '../../application/get-wager-transact
 import { ProcessWagerUseCase, type ProcessWagerResult } from '../../application/process-wager.use-case';
 import { WagerTransactionStatus } from '../../domain/wager-transaction';
 import { parseProcessWager } from './process-wager.dto';
+import { uuid } from '../../../shared/interface/http/request-validation';
 
 interface StatusResponse {
   status(code: number): StatusResponse;
@@ -21,7 +22,7 @@ export class WageringController {
 
   @Get(':transactionId')
   get(@Param('transactionId') transactionId: string) {
-    return this.getTransaction.byId(transactionId);
+    return this.getTransaction.byId(uuid(transactionId, 'transactionId'));
   }
 
   @Post()

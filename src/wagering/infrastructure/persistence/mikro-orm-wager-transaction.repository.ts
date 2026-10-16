@@ -39,6 +39,15 @@ export class MikroOrmWagerTransactionRepository implements WagerTransactionRepos
     return this.findOne({ id }, context);
   }
 
+  async findByIdForUpdate(id: string, context: TransactionContext): Promise<WagerTransaction | null> {
+    const record = await entityManagerFrom(context).findOne(
+      WagerTransactionRecord,
+      { id },
+      { lockMode: LockMode.PESSIMISTIC_WRITE, refresh: true },
+    );
+    return record === null ? null : WagerTransactionMapper.toDomain(record);
+  }
+
   findByIdempotencyKey(
     idempotencyKey: string,
     context?: TransactionContext,

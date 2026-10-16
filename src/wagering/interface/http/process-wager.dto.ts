@@ -1,7 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 
 import { Money } from '../../../shared/domain/money/money';
-import { requiredObject, requiredString } from '../../../shared/interface/http/request-validation';
+import { requiredObject, requiredString, requiredUuid } from '../../../shared/interface/http/request-validation';
 import type { ProcessWagerCommand } from '../../application/process-wager.use-case';
 import { WagerTransactionKind } from '../../domain/wager-transaction';
 
@@ -19,8 +19,8 @@ export function parseProcessWager(body: Record<string, unknown>, idempotencyKey:
     providerId: requiredString(body, 'providerId'),
     externalTransactionId: requiredString(body, 'externalTransactionId'),
     idempotencyKey,
-    playerId: requiredString(body, 'playerId'),
-    walletId: requiredString(body, 'walletId'),
+    playerId: requiredUuid(body, 'playerId'),
+    walletId: requiredUuid(body, 'walletId'),
     roundId: requiredString(body, 'roundId'),
     gameId: requiredString(body, 'gameId'),
     kind,

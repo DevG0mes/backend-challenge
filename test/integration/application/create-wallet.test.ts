@@ -77,7 +77,7 @@ describe('CreateWalletUseCase', () => {
     const events = await orm.em.getConnection().execute<{ event_type: string }[]>(
       'select event_type from outbox_messages order by event_type',
     );
-    expect(events.map((event) => event.event_type)).toEqual(['WagerProcessed', 'WalletBalanceChanged']);
+    expect(events.map((event) => event.event_type)).toEqual(['WagerTransactionProcessed', 'WalletBalanceChanged']);
   });
 
   test('creates a zero wallet without OPENING or ledger movement', async () => {

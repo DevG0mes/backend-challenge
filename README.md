@@ -14,7 +14,7 @@ Serviço financeiro distribuído para processar `BET`, `WIN`, `LOSS`, `REFUND` e
 | [`docs/failure-codes.md`](docs/failure-codes.md) | códigos de falha estáveis |
 | [`docs/api-examples.http`](docs/api-examples.http) | exemplos executáveis da API HTTP |
 
-**Evidência atual:** 179 testes, 0 falhas e 428 assertions na suíte padrão, além de cinco cenários de concorrência com três processos reais e teste de carga com reconciliação contábil.
+**Evidência atual:** 182 testes, 0 falhas e 436 assertions na suíte padrão, além de cinco cenários de concorrência com três processos reais e teste de carga com reconciliação contábil.
 
 ---
 
@@ -104,7 +104,7 @@ sequenceDiagram
 
 | Garantia | Mecanismo | Evidência |
 |---|---|---|
-| Dinheiro exato | `decimal.js`, precisão 80 e `NUMERIC(20,2)` como string | testes de `Money`, persistência e valores elevados |
+| Dinheiro exato | `decimal.js`, precisão 80 e `NUMERIC(40,2)` como string | testes de `Money`, persistência e valores elevados |
 | Saldo nunca negativo | regra de domínio + `CHECK` no PostgreSQL | corrida com saldo 100 e duas apostas de 80 |
 | Sem lost update | `SELECT ... FOR UPDATE` por carteira | testes concorrentes com três processos |
 | Idempotência persistente | chaves únicas + hash canônico SHA-256 | mesma aposta enviada 50 vezes em paralelo |
@@ -312,9 +312,9 @@ bun run test:report
 `test:report` gera `reports/junit.xml`, ignorado pelo Git para sempre representar a execução atual.
 
 ```text
-179 pass
+182 pass
 0 fail
-428 expect() calls
+436 expect() calls
 32 arquivos de teste
 ```
 
@@ -330,7 +330,7 @@ bun run test:concurrency
 | duas apostas disputando saldo | uma processada e uma rejeitada |
 | carteiras distintas em paralelo | nenhuma contenção global |
 | tráfego entre três instâncias | consistência final preservada |
-| queda após commit e antes do ack | replay sem novo débito |
+| reinício de processo após commit HTTP | replay sem novo débito |
 
 Também são testados migrations `up/down/up`, constraints, ledger imutável, atomicidade, inbox, publishers concorrentes, retry, DLQ, referências pendentes, API E2E, health e reconciliação.
 
@@ -367,12 +367,12 @@ As credenciais padrão (`dw_app` / `dw_local_N7v4K2p9`) são públicas e servem 
 ## Limitações conhecidas
 
 - autenticação real não implementada;
-- métricas em memória sem exporter Prometheus/OpenTelemetry;
+- métricas Prometheus mantidas por processo, sem agregador externo/OpenTelemetry;
 - cursor opaco e validado, mas sem HMAC;
 - eventos at-least-once, não exactly-once;
 - reconciliação sem reparo automático;
 - três instâncias sem load balancer;
-- nenhum benchmark formal de throughput foi executado.
+- teste de carga local não representa capacidade de produção.
 
 Veja detalhes em [`ARCHITECTURE.md`](ARCHITECTURE.md).
 

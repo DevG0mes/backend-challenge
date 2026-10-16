@@ -9,6 +9,7 @@ export interface WagerTransactionRepository {
     context: TransactionContext,
   ): Promise<WagerTransaction[]>;
   findById(id: string, context?: TransactionContext): Promise<WagerTransaction | null>;
+  findByIdForUpdate(id: string, context: TransactionContext): Promise<WagerTransaction | null>;
   findByIdempotencyKey(
     idempotencyKey: string,
     context?: TransactionContext,

@@ -41,4 +41,4 @@ Todas as 2.053 respostas medidas foram HTTP 201. A menor vazão e a cauda maior 
 
 ## Limitações
 
-Os números representam uma única execução local com PostgreSQL e LocalStack no Docker Desktop, com gerador e serviços compartilhando a mesma máquina. Não são benchmark estatístico nem estimam capacidade de produção, latência da AWS, comportamento de rede real ou escalabilidade ilimitada. As réplicas são acessadas diretamente porque esta entrega não inclui load balancer.
+Os números representam uma única execução local com PostgreSQL e LocalStack no Docker Desktop, com gerador e serviços compartilhando a mesma máquina. Não são benchmark estatístico nem estimam capacidade de produção, latência da AWS, comportamento de rede real ou escalabilidade ilimitada. As réplicas são acessadas diretamente porque esta entrega não inclui load balancer. Esta versão do runner não mede separadamente conflitos de lock nem outbox lag durante a janela; essas métricas podem ser consultadas em `/metrics`, mas não integram o relatório de carga.

@@ -87,6 +87,7 @@ export class CreateWalletUseCase {
           context,
         );
         const eventMetadata = {
+          aggregateId: wallet.id,
           occurredAt: now,
           correlationId: opening.idempotencyKey,
           causationId: opening.id,
@@ -106,7 +107,7 @@ export class CreateWalletUseCase {
         for (const event of events) {
           const payload = event.toJSON();
           await this.outbox.insert({
-            id: event.id, aggregateId: wallet.id, eventType: payload.type, payload,
+            id: event.id, aggregateId: wallet.id, eventType: payload.eventType, payload,
             occurredAt: event.occurredAt, attempts: 0, nextAttemptAt: undefined, publishedAt: undefined,
           }, context);
         }

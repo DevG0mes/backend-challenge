@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test';
 import { MikroORM } from '@mikro-orm/postgresql';
+import type { TransactionContext } from '../../../src/database/transaction-runner';
 
 import { createMikroOrmConfig } from '../../../src/database/mikro-orm.config';
 import { PostgresTransactionRunner } from '../../../src/database/postgres-transaction-runner';
@@ -8,6 +9,7 @@ import { RandomIdGenerator } from '../../../src/shared/application/id-generator'
 import { Money } from '../../../src/shared/domain/money/money';
 import { CreateWalletUseCase } from '../../../src/wallet/application/create-wallet.use-case';
 import { MikroOrmWalletRepository } from '../../../src/wallet/infrastructure/persistence/mikro-orm-wallet.repository';
+import type { Wallet } from '../../../src/wallet/domain/wallet';
 import { ProcessWagerUseCase, type ProcessWagerCommand } from '../../../src/wagering/application/process-wager.use-case';
 import { ReprocessPendingReferencesUseCase } from '../../../src/wagering/application/reprocess-pending-references.use-case';
 import { WagerTransactionKind } from '../../../src/wagering/domain/wager-transaction';
@@ -68,6 +70,47 @@ describe('pending reference reprocessing', () => {
     expect(await ledgerCount()).toBe('3');
   });
 
+  test('an expired stale worker cannot overwrite a completed reversal', async () => {
+    await processWager.execute({ ...command('refund-stale', WagerTransactionKind.Refund, '25.00'), referenceExternalTransactionId: 'bet-stale' });
+    await processWager.execute(command('bet-stale', WagerTransactionKind.Bet, '25.00'));
+
+    let signalEntered!: () => void;
+    let releaseLock!: () => void;
+    const entered = new Promise<void>((resolve) => { signalEntered = resolve; });
+    const released = new Promise<void>((resolve) => { releaseLock = resolve; });
+    class DelayedWalletRepository extends MikroOrmWalletRepository {
+      override async findOneForUpdate(id: string, context: TransactionContext): Promise<Wallet | null> {
+        signalEntered();
+        await released;
+        return super.findOneForUpdate(id, context);
+      }
+    }
+
+    const staleWorker = new ReprocessPendingReferencesUseCase(
+      new PostgresTransactionRunner(orm.em),
+      new DelayedWalletRepository(orm.em),
+      new MikroOrmWagerTransactionRepository(orm.em),
+      new MikroOrmOutboxRepository(orm.em),
+      new RandomIdGenerator(),
+      { maxAttempts: 10, baseDelayMs: 1_000, maxDelayMs: 3_600_000, leaseMs: 30_000 },
+    );
+    const staleRun = staleWorker.execute(NOW, 10);
+    await entered;
+
+    const winner = await reprocess.execute(new Date(NOW.getTime() + 31_000), 10);
+    releaseLock();
+    const stale = await staleRun;
+
+    expect(winner.processed).toBe(1);
+    expect(stale.processed).toBe(0);
+    const rows = await orm.em.getConnection().execute<{ status: string; count: string }[]>(
+      "select status, count(*)::text as count from wager_transactions where external_transaction_id = 'refund-stale' group by status",
+    );
+    expect(rows).toEqual([{ status: 'PROCESSED', count: '1' }]);
+    expect(await balance()).toBe('100.00');
+    expect(await ledgerCount()).toBe('3');
+  });
+
   test('rejects mismatched reference and exhausts a missing reference audibly', async () => {
     await processWager.execute({ ...command('refund-bad', WagerTransactionKind.Refund, '24.00'), referenceExternalTransactionId: 'bet-1' });
     await processWager.execute(command('bet-1', WagerTransactionKind.Bet, '25.00'));
@@ -80,7 +123,7 @@ describe('pending reference reprocessing', () => {
     const row = await orm.em.getConnection().execute<{ failure_code: string }[]>("select failure_code from wager_transactions where external_transaction_id = 'refund-missing'");
     expect(row[0]?.failure_code).toBe('REFERENCE_NOT_FOUND');
     const events = await orm.em.getConnection().execute<{ event_type: string }[]>("select event_type from outbox_messages where payload->'data'->>'transactionId' = (select id::text from wager_transactions where external_transaction_id = 'refund-missing')");
-    expect(events.map((event) => event.event_type)).toContain('WagerRejected');
+    expect(events.map((event) => event.event_type)).toContain('WagerTransactionRejected');
   });
 
   function command(externalTransactionId: string, kind: WagerTransactionKind, amount: string): ProcessWagerCommand {

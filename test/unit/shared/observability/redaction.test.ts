@@ -51,4 +51,13 @@ describe('operational visibility', () => {
       '',
     ].join('\n'));
   });
+
+  test('keeps histogram memory bounded while preserving cumulative count and sum', () => {
+    const metrics = new InMemoryMetrics();
+    for (let value = 1; value <= 101; value += 1) metrics.observe('latency_ms', value);
+
+    expect(metrics.histogram('latency_ms')).toHaveLength(100);
+    expect(metrics.toPrometheus()).toContain('latency_ms_count 101');
+    expect(metrics.toPrometheus()).toContain('latency_ms_sum 5151');
+  });
 });

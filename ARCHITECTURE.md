@@ -73,7 +73,7 @@ A reconciliação percorre o ledger em ordem estável `(created_at,id)`, parte d
 
 ## Limites e trade-offs conhecidos
 
-- Defaults `wagering` e `test` existem somente para desenvolvimento local; produção deve injetar secrets.
+- Os defaults `dw_app` / `dw_local_N7v4K2p9` existem somente para desenvolvimento local; produção deve injetar secrets.
 - Métricas são mantidas em memória e precisam de um exporter Prometheus/OpenTelemetry em produção.
 - O cursor é opaco, mas não assinado; ele não contém segredo e é validado, porém poderia receber HMAC em uma API pública.
 - O outbox garante at-least-once, não exactly-once; consumidores precisam deduplicar IDs.

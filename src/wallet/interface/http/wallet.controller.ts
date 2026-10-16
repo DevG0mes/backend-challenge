@@ -7,6 +7,7 @@ import { GetWalletUseCase } from '../../application/get-wallet.use-case';
 import { ListLedgerUseCase } from '../../application/list-ledger.use-case';
 import { ReconcileWalletUseCase } from '../../application/reconcile-wallet.use-case';
 import { parseCreateWallet } from './create-wallet.dto';
+import { uuid } from '../../../shared/interface/http/request-validation';
 
 @Controller('wallets')
 @UseFilters(DomainExceptionFilter)
@@ -26,7 +27,7 @@ export class WalletController {
 
   @Get(':walletId')
   get(@Param('walletId') walletId: string) {
-    return this.getWallet.execute(walletId);
+    return this.getWallet.execute(uuid(walletId, 'walletId'));
   }
 
   @Get(':walletId/ledger')
@@ -35,7 +36,7 @@ export class WalletController {
     @Query('cursor') cursor?: string,
     @Query('limit') limit?: string,
   ) {
-    return this.listLedger.execute(walletId, {
+    return this.listLedger.execute(uuid(walletId, 'walletId'), {
       ...(cursor === undefined ? {} : { cursor }),
       ...(limit === undefined ? {} : { limit: Number(limit) }),
     });
@@ -43,6 +44,6 @@ export class WalletController {
 
   @Post(':walletId/reconciliation')
   reconcile(@Param('walletId') walletId: string) {
-    return this.reconcileWallet.execute(walletId);
+    return this.reconcileWallet.execute(uuid(walletId, 'walletId'));
   }
 }

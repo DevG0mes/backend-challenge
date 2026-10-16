@@ -60,12 +60,19 @@ export class ReprocessPendingReferencesUseCase {
     now: Date,
     context: TransactionContext,
   ): Promise<'processed' | 'rejected' | 'rescheduled'> {
-    const transaction = await this.wagers.findById(transactionId, context);
+    const claimedTransaction = await this.wagers.findById(transactionId, context);
+    if (claimedTransaction === null || claimedTransaction.status !== WagerTransactionStatus.PendingReference) {
+      return 'rescheduled';
+    }
+    const wallet = await this.wallets.findOneForUpdate(claimedTransaction.walletId, context);
+    if (wallet === null) throw new Error(`Wallet ${claimedTransaction.walletId} was not found`);
+
+    // The claim lease can expire while this worker waits for the wallet. Re-read the
+    // row under lock so a stale worker can never overwrite a terminal outcome.
+    const transaction = await this.wagers.findByIdForUpdate(transactionId, context);
     if (transaction === null || transaction.status !== WagerTransactionStatus.PendingReference) {
       return 'rescheduled';
     }
-    const wallet = await this.wallets.findOneForUpdate(transaction.walletId, context);
-    if (wallet === null) throw new Error(`Wallet ${transaction.walletId} was not found`);
     const reference = transaction.referenceExternalTransactionId === undefined
       ? undefined
       : await this.wagers.findByProviderExternal(
@@ -116,7 +123,7 @@ export class ReprocessPendingReferencesUseCase {
     }
     transaction.markProcessed(decision.referenceTransactionId, now, wallet.balance);
     await this.enqueue(new WagerProcessedEvent({
-      ...this.metadata(transaction.idempotencyKey, transaction.id, now),
+      ...this.metadata(transaction.idempotencyKey, transaction.id, wallet.id, now),
       transactionId: transaction.id,
       walletId: wallet.id,
       providerId: transaction.providerId,
@@ -125,7 +132,7 @@ export class ReprocessPendingReferencesUseCase {
     }), wallet.id, context);
     if (change !== undefined && !change.balanceBefore.equals(change.balanceAfter)) {
       await this.enqueue(new WalletBalanceChangedEvent({
-        ...this.metadata(transaction.idempotencyKey, transaction.id, now),
+        ...this.metadata(transaction.idempotencyKey, transaction.id, wallet.id, now),
         transactionId: transaction.id,
         walletId: wallet.id,
         balanceBefore: change.balanceBefore.toJSON(),
@@ -139,7 +146,7 @@ export class ReprocessPendingReferencesUseCase {
 
   private enqueueRejected(transaction: WagerTransaction, balance: { amount: string; currency: string }, now: Date, context: TransactionContext): Promise<void> {
     const event = new WagerRejectedEvent({
-      ...this.metadata(transaction.idempotencyKey, transaction.id, now),
+      ...this.metadata(transaction.idempotencyKey, transaction.id, transaction.walletId, now),
       transactionId: transaction.id,
       walletId: transaction.walletId,
       providerId: transaction.providerId,
@@ -149,8 +156,8 @@ export class ReprocessPendingReferencesUseCase {
     return this.enqueue(event, transaction.walletId, context);
   }
 
-  private metadata(correlationId: string, causationId: string, occurredAt: Date) {
-    return { id: this.ids.next(), occurredAt, correlationId, causationId };
+  private metadata(correlationId: string, causationId: string, aggregateId: string, occurredAt: Date) {
+    return { id: this.ids.next(), aggregateId, occurredAt, correlationId, causationId };
   }
 
   private enqueue(
@@ -162,7 +169,7 @@ export class ReprocessPendingReferencesUseCase {
     return this.outbox.insert({
       id: event.id,
       aggregateId,
-      eventType: payload.type,
+      eventType: payload.eventType,
       payload,
       occurredAt: event.occurredAt,
       attempts: 0,
