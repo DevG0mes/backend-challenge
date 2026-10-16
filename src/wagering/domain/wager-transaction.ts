@@ -42,6 +42,14 @@ export interface WagerTransactionState extends CreateWagerTransactionProps {
   failureCode: FailureCode | undefined;
   processedAt: Date | undefined;
   resultBalance: Money | undefined;
+  pendingAttempts?: number;
+  nextAttemptAt?: Date | undefined;
+}
+
+export interface PendingReferenceRetryPolicy {
+  maxAttempts: number;
+  baseDelayMs: number;
+  maxDelayMs: number;
 }
 
 export class WagerTransaction {
@@ -51,6 +59,8 @@ export class WagerTransaction {
   private _failureCode: FailureCode | undefined;
   private _processedAt: Date | undefined;
   private _resultBalance: Money | undefined;
+  private _pendingAttempts: number;
+  private _nextAttemptAt: Date | undefined;
 
   private constructor(
     public readonly id: string,
@@ -71,6 +81,8 @@ export class WagerTransaction {
     failureCode: FailureCode | undefined,
     processedAt: Date | undefined,
     resultBalance: Money | undefined,
+    pendingAttempts: number,
+    nextAttemptAt: Date | undefined,
   ) {
     this._createdAt = new Date(createdAt);
     this._status = status;
@@ -78,6 +90,8 @@ export class WagerTransaction {
     this._failureCode = failureCode;
     this._processedAt = processedAt === undefined ? undefined : new Date(processedAt);
     this._resultBalance = resultBalance;
+    this._pendingAttempts = pendingAttempts;
+    this._nextAttemptAt = nextAttemptAt === undefined ? undefined : new Date(nextAttemptAt);
   }
 
   static create(props: CreateWagerTransactionProps): WagerTransaction {
@@ -111,6 +125,8 @@ export class WagerTransaction {
       undefined,
       undefined,
       undefined,
+      0,
+      undefined,
     );
   }
 
@@ -134,6 +150,8 @@ export class WagerTransaction {
       state.failureCode,
       state.processedAt,
       state.resultBalance,
+      state.pendingAttempts ?? 0,
+      state.nextAttemptAt,
     );
   }
 
@@ -161,6 +179,9 @@ export class WagerTransaction {
     return this._resultBalance;
   }
 
+  get pendingAttempts(): number { return this._pendingAttempts; }
+  get nextAttemptAt(): Date | undefined { return this._nextAttemptAt === undefined ? undefined : new Date(this._nextAttemptAt); }
+
   markProcessed(
     referenceTransactionId: string | undefined,
     at: Date,
@@ -176,6 +197,7 @@ export class WagerTransaction {
     this._referenceTransactionId = referenceTransactionId;
     this._processedAt = new Date(at);
     this._resultBalance = resultBalance;
+    this._nextAttemptAt = undefined;
   }
 
   markPendingReference(resultBalance?: Money): void {
@@ -197,12 +219,30 @@ export class WagerTransaction {
     this._status = WagerTransactionStatus.Rejected;
     this._failureCode = code;
     this._resultBalance = resultBalance;
+    this._nextAttemptAt = undefined;
+  }
+
+  scheduleReferenceRetry(at: Date, policy: PendingReferenceRetryPolicy): void {
+    this.assertNotTerminal();
+    if (this._status !== WagerTransactionStatus.PendingReference) {
+      throw new DomainError('INVALID_TRANSACTION_STATE', `Cannot retry ${this._status}`);
+    }
+    this._pendingAttempts += 1;
+    if (this._pendingAttempts >= policy.maxAttempts) {
+      this._status = WagerTransactionStatus.Rejected;
+      this._failureCode = FailureCode.ReferenceNotFound;
+      this._nextAttemptAt = undefined;
+      return;
+    }
+    const delay = Math.min(policy.baseDelayMs * 2 ** (this._pendingAttempts - 1), policy.maxDelayMs);
+    this._nextAttemptAt = new Date(at.getTime() + delay);
   }
 
   fail(code: FailureCode): void {
     this.assertNotTerminal();
     this._status = WagerTransactionStatus.Failed;
     this._failureCode = code;
+    this._nextAttemptAt = undefined;
   }
 
   isTerminal(): boolean {

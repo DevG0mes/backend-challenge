@@ -31,6 +31,8 @@ export class WagerTransactionMapper {
         record.resultBalance == null || record.resultCurrency == null
           ? undefined
           : Money.from({ amount: record.resultBalance, currency: record.resultCurrency }),
+      pendingAttempts: record.pendingAttempts,
+      nextAttemptAt: record.nextAttemptAt ?? undefined,
     });
   }
 
@@ -54,8 +56,8 @@ export class WagerTransactionMapper {
     record.failureCode = transaction.failureCode;
     record.resultBalance = transaction.resultBalance?.toJSON().amount;
     record.resultCurrency = transaction.resultBalance?.currency;
-    record.pendingAttempts = 0;
-    record.nextAttemptAt = undefined;
+    record.pendingAttempts = transaction.pendingAttempts;
+    record.nextAttemptAt = transaction.nextAttemptAt;
     record.processedAt = transaction.processedAt;
     record.createdAt = transaction.createdAt;
     return record;

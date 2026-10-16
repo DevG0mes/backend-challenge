@@ -2,6 +2,12 @@ import type { TransactionContext } from '../../../database/transaction-runner';
 import type { WagerTransaction } from '../../domain/wager-transaction';
 
 export interface WagerTransactionRepository {
+  claimDuePending(
+    now: Date,
+    limit: number,
+    leaseUntil: Date,
+    context: TransactionContext,
+  ): Promise<WagerTransaction[]>;
   findById(id: string, context?: TransactionContext): Promise<WagerTransaction | null>;
   findByIdempotencyKey(
     idempotencyKey: string,

@@ -1,3 +1,4 @@
+import { LockMode, QueryOrder } from '@mikro-orm/core';
 import type { EntityManager } from '@mikro-orm/postgresql';
 
 import { entityManagerFrom } from '../../../database/postgres-transaction-runner';
@@ -9,6 +10,30 @@ import { WagerTransactionRecord } from './wager-transaction.record';
 
 export class MikroOrmWagerTransactionRepository implements WagerTransactionRepository {
   constructor(private readonly entityManager: EntityManager) {}
+
+  async claimDuePending(
+    now: Date,
+    limit: number,
+    leaseUntil: Date,
+    context: TransactionContext,
+  ): Promise<WagerTransaction[]> {
+    const manager = entityManagerFrom(context);
+    const records = await manager.find(
+      WagerTransactionRecord,
+      {
+        status: 'PENDING_REFERENCE',
+        $or: [{ nextAttemptAt: null }, { nextAttemptAt: { $lte: now } }],
+      },
+      {
+        limit,
+        orderBy: { createdAt: QueryOrder.ASC, id: QueryOrder.ASC },
+        lockMode: LockMode.PESSIMISTIC_PARTIAL_WRITE,
+      },
+    );
+    for (const record of records) record.nextAttemptAt = leaseUntil;
+    await manager.flush();
+    return records.map(WagerTransactionMapper.toDomain);
+  }
 
   findById(id: string, context?: TransactionContext): Promise<WagerTransaction | null> {
     return this.findOne({ id }, context);
