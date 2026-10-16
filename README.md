@@ -341,7 +341,7 @@ docker compose start app app-2 app-3
 bun run test:load
 ```
 
-Na execução de referência, o cenário distribuído sustentou **140,73 req/s** (p95 **201,78 ms**) e a hot wallet **62,12 req/s** (p95 **1.276,75 ms**), ambos sem erro HTTP e sem divergência entre saldo e ledger. Ambiente, configuração, percentis e limitações estão em [`docs/LOAD_TEST.md`](docs/LOAD_TEST.md).
+Na execução de referência, o cenário distribuído sustentou **157,60 req/s** (p95 **219,02 ms**) e a hot wallet **67,15 req/s** (p95 **1.173,60 ms**), ambos sem erro HTTP e sem divergência entre saldo e ledger. Ambiente, configuração, percentis e limitações estão em [`docs/LOAD_TEST.md`](docs/LOAD_TEST.md).
 
 ---
 

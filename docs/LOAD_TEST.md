@@ -34,10 +34,10 @@ Execução de referência em 16/10/2026, após `docker compose down --volumes` e
 
 | Cenário | Requisições | Req/s | p50 | p95 | p99 | Máximo | Erros | Reconciliação |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| 20 wallets | 1.415 | 140,73 | 102,40 ms | 201,78 ms | 285,80 ms | 505,18 ms | 0 | 20/20 consistentes |
-| hot wallet | 638 | 62,12 | 56,34 ms | 1.276,75 ms | 2.593,18 ms | 3.026,67 ms | 0 | 1/1 consistente |
+| 20 wallets | 1.586 | 157,60 | 85,57 ms | 219,02 ms | 373,63 ms | 542,39 ms | 0 | 20/20 consistentes |
+| hot wallet | 683 | 67,15 | 52,88 ms | 1.173,60 ms | 2.173,56 ms | 5.038,66 ms | 0 | 1/1 consistente |
 
-Todas as 2.053 respostas medidas foram HTTP 201. A menor vazão e a cauda maior da hot wallet são coerentes com a serialização intencional pelo lock pessimista daquela carteira. O arquivo `reports/load-test.json`, ignorado pelo Git, preserva os valores brutos da execução local atual.
+Todas as 2.269 respostas medidas foram HTTP 201. A menor vazão e a cauda maior da hot wallet são coerentes com a serialização intencional pelo lock pessimista daquela carteira. O arquivo `reports/load-test.json`, ignorado pelo Git, preserva os valores brutos da execução local atual.
 
 ## Limitações
 
