@@ -62,6 +62,7 @@ A reconciliação percorre o ledger em ordem estável `(created_at,id)`, parte d
 
 - `/health/live`: vida do processo, sem dependências.
 - `/health/ready`: consulta PostgreSQL e SQS; responde 503 quando qualquer um está indisponível.
+- `/metrics`: expõe métricas Prometheus locais à instância; agregação exige scraping de cada réplica.
 - Logs JSON mantêm IDs de correlação/transação/carteira/provedor e removem payloads financeiros, tokens e segredos.
 - Métricas cobrem status, duplicidades, latência, espera por lock, retries, DLQ, lag do outbox e divergências de reconciliação.
 - Workers param de buscar trabalho e aguardam operações em andamento até o grace period.

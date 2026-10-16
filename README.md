@@ -9,6 +9,8 @@ Serviço financeiro distribuído para processar `BET`, `WIN`, `LOSS`, `REFUND` e
 | [`README.md`](README.md) | execução, arquitetura, garantias, API e verificação |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | decisões técnicas, fluxos, trade-offs e limitações |
 | [`docs/TESTING.md`](docs/TESTING.md) | estratégia e apresentação das evidências de teste |
+| [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) | conformidade requisito por requisito |
+| [`docs/LOAD_TEST.md`](docs/LOAD_TEST.md) | metodologia e resultados do teste de carga |
 | [`docs/failure-codes.md`](docs/failure-codes.md) | códigos de falha estáveis |
 | [`docs/api-examples.http`](docs/api-examples.http) | exemplos executáveis da API HTTP |
 
@@ -202,6 +204,7 @@ GET  /providers/:providerId/wagering/transactions/:externalTransactionId
 
 GET  /health/live
 GET  /health/ready
+GET  /metrics
 ```
 
 ### Criar uma carteira
@@ -289,7 +292,7 @@ Divergências são sinalizadas, registradas e contabilizadas, mas nunca corrigid
 - liveness sem dependências e readiness de PostgreSQL/SQS;
 - parada graciosa dos workers.
 
-As métricas possuem abstração interna, mas esta entrega não inclui endpoint Prometheus nem Grafana/OpenTelemetry.
+`GET /metrics` expõe o formato Prometheus por instância. Grafana/OpenTelemetry e agregação externa não fazem parte desta entrega.
 
 ---
 
