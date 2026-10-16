@@ -11,7 +11,8 @@ describe('process crash recovery', () => {
     const first = await cluster.postWager(0, wager(walletId, PLAYER, 'crash-bet', '25.00'), 'provider-a:crash-bet');
     expect(first.status).toBe(201);
     cluster.stopInstance(0);
-    const replay = await cluster.postWager(1, wager(walletId, PLAYER, 'crash-bet', '25.00'), 'provider-a:crash-bet');
+    await cluster.restartInstance(0);
+    const replay = await cluster.postWager(0, wager(walletId, PLAYER, 'crash-bet', '25.00'), 'provider-a:crash-bet');
     expect(replay.status).toBe(201);
     expect(replay.body.idempotentReplay).toBeTrue();
     expect(replay.body.transactionId).toBe(first.body.transactionId);

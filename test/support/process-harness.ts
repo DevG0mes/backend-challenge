@@ -19,18 +19,7 @@ export class ProcessHarness {
       dbName: 'wagering', user: 'wagering', password: 'wagering',
     }));
     await this.orm.migrator.up();
-    for (const port of this.ports) {
-      this.children.push(spawn(process.execPath, ['run', 'src/main.ts'], {
-        cwd: process.cwd(),
-        env: {
-          ...process.env,
-          PORT: String(port),
-          TEST_POSTGRES_PORT: process.env.TEST_POSTGRES_PORT ?? '55432',
-          SQS_ENDPOINT: process.env.SQS_ENDPOINT ?? 'http://127.0.0.1:4566',
-        },
-        stdio: 'ignore',
-      }));
-    }
+    for (const [index] of this.ports.entries()) this.children[index] = this.spawnInstance(index);
     await Promise.all(this.ports.map((_, index) => this.waitUntilReady(index)));
   }
 
@@ -53,6 +42,16 @@ export class ProcessHarness {
 
   stopInstance(index: number): void {
     this.children[index]?.kill();
+  }
+
+  async restartInstance(index: number): Promise<void> {
+    const previous = this.children[index];
+    if (previous && previous.exitCode === null) {
+      previous.kill();
+      await new Promise<void>((resolve) => previous.once('exit', () => resolve()));
+    }
+    this.children[index] = this.spawnInstance(index);
+    await this.waitUntilReady(index);
   }
 
   async createWallet(playerId: string, amount = '100.00', instance = 0): Promise<Record<string, unknown>> {
@@ -118,6 +117,19 @@ export class ProcessHarness {
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
     throw new Error(`Application instance ${index} did not become ready`);
+  }
+
+  private spawnInstance(index: number): ChildProcess {
+    return spawn(process.execPath, ['run', 'src/main.ts'], {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        PORT: String(this.ports[index]),
+        TEST_POSTGRES_PORT: process.env.TEST_POSTGRES_PORT ?? '55432',
+        SQS_ENDPOINT: process.env.SQS_ENDPOINT ?? 'http://127.0.0.1:4566',
+      },
+      stdio: 'ignore',
+    });
   }
 }
 
