@@ -14,6 +14,7 @@ import { DomainExceptionFilter } from './shared/interface/http/domain-exception.
 import { ProviderAuthGuard } from './shared/interface/http/provider-auth.guard';
 import { StructuredLogger } from './shared/observability/logger';
 import { InMemoryMetrics } from './shared/observability/metrics';
+import { MetricsController } from './shared/observability/metrics.controller';
 import { CreateWalletUseCase } from './wallet/application/create-wallet.use-case';
 import { GetWalletUseCase } from './wallet/application/get-wallet.use-case';
 import { ListLedgerUseCase } from './wallet/application/list-ledger.use-case';
@@ -38,7 +39,7 @@ import { PendingReferenceWorker } from './wagering/infrastructure/workers/pendin
 
 @Module({
   imports: [MikroOrmModule.forRoot(mikroOrmConfig)],
-  controllers: [HealthController, WalletController, WageringController, ProviderWageringController],
+  controllers: [HealthController, MetricsController, WalletController, WageringController, ProviderWageringController],
   providers: [
     DomainExceptionFilter,
     ProviderAuthGuard,

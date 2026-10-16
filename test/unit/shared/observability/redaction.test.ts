@@ -29,4 +29,26 @@ describe('operational visibility', () => {
     expect(metrics.histogram('wager_processing_latency_ms', { kind: 'BET' })).toEqual([12.5]);
     expect(metrics.gauge('outbox_lag_seconds')).toBe(3.2);
   });
+
+  test('renders deterministic Prometheus text with normalized names and escaped labels', () => {
+    const metrics = new InMemoryMetrics();
+    metrics.setGauge('outbox-lag.seconds', 3.2);
+    metrics.observe('wager_processing_latency_ms', 12.5, { kind: 'BET' });
+    metrics.observe('wager_processing_latency_ms', 7.5, { kind: 'BET' });
+    metrics.increment('wager-transactions.total', {
+      note: 'quote" slash\\ newline\n',
+      status: 'PROCESSED',
+    }, 2);
+
+    expect(metrics.toPrometheus()).toBe([
+      '# TYPE outbox_lag_seconds gauge',
+      'outbox_lag_seconds 3.2',
+      '# TYPE wager_processing_latency_ms histogram',
+      'wager_processing_latency_ms_count{kind="BET"} 2',
+      'wager_processing_latency_ms_sum{kind="BET"} 20',
+      '# TYPE wager_transactions_total counter',
+      'wager_transactions_total{note="quote\\" slash\\\\ newline\\n",status="PROCESSED"} 2',
+      '',
+    ].join('\n'));
+  });
 });
