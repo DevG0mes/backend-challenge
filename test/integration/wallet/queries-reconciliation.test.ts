@@ -44,7 +44,7 @@ describe('wallet queries and reconciliation', () => {
     getWallet = new GetWalletUseCase(wallets);
     listLedger = new ListLedgerUseCase(wallets);
     metrics = new InMemoryMetrics();
-    reconcile = new ReconcileWalletUseCase(wallets, metrics);
+    reconcile = new ReconcileWalletUseCase(runner, wallets, metrics);
     getTransaction = new GetWagerTransactionUseCase(wagers);
   });
 

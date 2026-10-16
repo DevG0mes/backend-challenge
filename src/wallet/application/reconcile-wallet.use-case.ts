@@ -4,6 +4,7 @@ import { LedgerDirection } from '../domain/wallet-ledger-entry';
 import type { WalletRepository } from './ports/wallet.repository';
 import type { OperationalMetrics } from '../../shared/observability/metrics';
 import type { StructuredLogger } from '../../shared/observability/logger';
+import type { TransactionRunner } from '../../database/transaction-runner';
 
 export interface ReconciliationResult {
   walletId: string;
@@ -16,15 +17,19 @@ export interface ReconciliationResult {
 
 export class ReconcileWalletUseCase {
   constructor(
+    private readonly transactions: TransactionRunner,
     private readonly wallets: WalletRepository,
     private readonly metrics?: OperationalMetrics,
     private readonly logger?: StructuredLogger,
   ) {}
 
   async execute(walletId: string): Promise<ReconciliationResult> {
-    const wallet = await this.wallets.findById(walletId);
-    if (wallet === null) throw new ApplicationError('WALLET_NOT_FOUND', `Wallet ${walletId} was not found`);
-    const entries = await this.wallets.listLedger(walletId);
+    const snapshot = await this.transactions.run(async (context) => {
+      const wallet = await this.wallets.findOneForUpdate(walletId, context);
+      if (wallet === null) throw new ApplicationError('WALLET_NOT_FOUND', `Wallet ${walletId} was not found`);
+      return { wallet, entries: await this.wallets.listLedger(walletId, context) };
+    });
+    const { wallet, entries } = snapshot;
     let calculated = Money.zero(wallet.currency);
     for (const entry of entries) {
       calculated = entry.direction === LedgerDirection.Credit

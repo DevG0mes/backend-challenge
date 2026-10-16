@@ -1,6 +1,7 @@
-import { Body, Controller, Get, Param, Post, Query, UseFilters } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, UseFilters, UseGuards } from '@nestjs/common';
 
 import { DomainExceptionFilter } from '../../../shared/interface/http/domain-exception.filter';
+import { ProviderAuthGuard } from '../../../shared/interface/http/provider-auth.guard';
 import { CreateWalletUseCase, type WalletResult } from '../../application/create-wallet.use-case';
 import { GetWalletUseCase } from '../../application/get-wallet.use-case';
 import { ListLedgerUseCase } from '../../application/list-ledger.use-case';
@@ -9,6 +10,7 @@ import { parseCreateWallet } from './create-wallet.dto';
 
 @Controller('wallets')
 @UseFilters(DomainExceptionFilter)
+@UseGuards(ProviderAuthGuard)
 export class WalletController {
   constructor(
     private readonly createWallet: CreateWalletUseCase,

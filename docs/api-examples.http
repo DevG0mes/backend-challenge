@@ -1,0 +1,69 @@
+@baseUrl = http://localhost:3000
+@playerId = 0192f28f-5dc0-7d58-bdb2-814ad6a0f4a1
+
+### Liveness
+GET {{baseUrl}}/health/live
+
+### Readiness de PostgreSQL e SQS
+GET {{baseUrl}}/health/ready
+
+### Criar carteira
+POST {{baseUrl}}/wallets
+Content-Type: application/json
+
+{
+  "playerId": "{{playerId}}",
+  "initialBalance": { "amount": "100.00", "currency": "BRL" }
+}
+
+### Substitua pelo id retornado acima
+@walletId = 00000000-0000-0000-0000-000000000000
+
+### Apostar
+POST {{baseUrl}}/wagering/transactions
+Content-Type: application/json
+Idempotency-Key: provider-a:bet-001
+
+{
+  "providerId": "provider-a",
+  "externalTransactionId": "bet-001",
+  "playerId": "{{playerId}}",
+  "walletId": "{{walletId}}",
+  "roundId": "round-001",
+  "gameId": "fortune-chimp",
+  "kind": "BET",
+  "money": { "amount": "25.00", "currency": "BRL" }
+}
+
+### Refund idempotente da aposta
+POST {{baseUrl}}/wagering/transactions
+Content-Type: application/json
+Idempotency-Key: provider-a:refund-001
+
+{
+  "providerId": "provider-a",
+  "externalTransactionId": "refund-001",
+  "playerId": "{{playerId}}",
+  "walletId": "{{walletId}}",
+  "roundId": "round-001",
+  "gameId": "fortune-chimp",
+  "kind": "REFUND",
+  "money": { "amount": "25.00", "currency": "BRL" },
+  "referenceExternalTransactionId": "bet-001"
+}
+
+### Consultar carteira
+GET {{baseUrl}}/wallets/{{walletId}}
+
+### Ledger paginado
+GET {{baseUrl}}/wallets/{{walletId}}/ledger?limit=50
+
+### Reconciliação sem reparo automático
+POST {{baseUrl}}/wallets/{{walletId}}/reconciliation
+
+### Consulta por ID interno
+@transactionId = 00000000-0000-0000-0000-000000000000
+GET {{baseUrl}}/wagering/transactions/{{transactionId}}
+
+### Consulta pela identidade do provedor
+GET {{baseUrl}}/providers/provider-a/wagering/transactions/bet-001

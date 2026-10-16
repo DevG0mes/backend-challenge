@@ -3,6 +3,7 @@ import type { WagerMessageEnvelope } from '../../application/consume-wager-messa
 import { classifyConsumerError } from './error-classifier';
 import type { ReceivedSqsMessage, SqsTransport } from './sqs.client';
 import type { OperationalMetrics } from '../../../shared/observability/metrics';
+import { WagerTransactionKind } from '../../../wagering/domain/wager-transaction';
 
 export interface WagerMessageHandler {
   execute(envelope: WagerMessageEnvelope): Promise<unknown>;
@@ -87,7 +88,14 @@ export class WagerConsumerWorker {
       typeof (money as Record<string, unknown>).currency !== 'string';
     const invalidReference = data.referenceExternalTransactionId !== undefined &&
       typeof data.referenceExternalTransactionId !== 'string';
-    if (requiredStrings.some((field) => typeof data[field] !== 'string' || data[field] === '') || invalidMoney || invalidReference) {
+    const invalidKind = ![
+      WagerTransactionKind.Bet,
+      WagerTransactionKind.Win,
+      WagerTransactionKind.Loss,
+      WagerTransactionKind.Refund,
+      WagerTransactionKind.Rollback,
+    ].includes(data.kind as WagerTransactionKind);
+    if (requiredStrings.some((field) => typeof data[field] !== 'string' || data[field] === '') || invalidMoney || invalidReference || invalidKind) {
       throw new ApplicationError('INVALID_MESSAGE', 'SQS wager data is invalid');
     }
     return envelope as WagerMessageEnvelope;

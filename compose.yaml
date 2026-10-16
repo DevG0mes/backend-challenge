@@ -26,10 +26,24 @@ services:
     volumes:
       - ./scripts/localstack:/etc/localstack/init/ready.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:4566/_localstack/health | grep -q '\"sqs\": \"available\"'"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:4566/_localstack/health | grep -Eq '\"sqs\": \"(available|running)\"'"]
       interval: 5s
       timeout: 3s
       retries: 20
+
+  migrate:
+    build:
+      context: .
+    command: ["bun", "run", "dist/database/migrate.js"]
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-wagering}
+      POSTGRES_USER: ${POSTGRES_USER:-wagering}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-wagering}
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   app:
     build:
@@ -45,9 +59,12 @@ services:
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-test}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-test}
       SQS_ENDPOINT: http://localstack:4566
+      WORKERS_ENABLED: "true"
     ports:
       - "${APP_EXPOSED_PORT:-3000}:3000"
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       localstack:
@@ -67,9 +84,12 @@ services:
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-test}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-test}
       SQS_ENDPOINT: http://localstack:4566
+      WORKERS_ENABLED: "true"
     ports:
       - "${APP_2_EXPOSED_PORT:-3001}:3000"
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       localstack:
@@ -89,9 +109,12 @@ services:
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-test}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-test}
       SQS_ENDPOINT: http://localstack:4566
+      WORKERS_ENABLED: "true"
     ports:
       - "${APP_3_EXPOSED_PORT:-3002}:3000"
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       localstack:

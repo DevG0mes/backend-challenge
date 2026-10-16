@@ -86,6 +86,14 @@ describe('LocalStack SQS wager consumer', () => {
     expect(await workerFor(consume).processNext()).toBe('DLQ');
   });
 
+  test('rejects the internal OPENING kind from an external queue message', async () => {
+    const externalOpening = envelope('external-opening');
+    externalOpening.data.kind = WagerTransactionKind.Opening;
+    await send(JSON.stringify(externalOpening));
+    expect(await workerFor(consume).processNext()).toBe('DLQ');
+    expect(metrics.counter('sqs_dlq_messages_total', { consumer: 'wager' })).toBe(1);
+  });
+
   test('retries transient failures and sends the final attempt to the DLQ', async () => {
     await send(JSON.stringify(envelope('retry-message')));
     const failing = { execute: async () => { throw new Error('database unavailable'); } };

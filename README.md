@@ -1,5 +1,45 @@
 # Technical Challenge — Distributed Wagering Processor
 
+## Implementação entregue
+
+Esta branch contém uma implementação executável do desafio com NestJS, Bun, PostgreSQL, MikroORM e SQS via LocalStack. As decisões e limitações estão em [ARCHITECTURE.md](ARCHITECTURE.md), os códigos de falha em [docs/failure-codes.md](docs/failure-codes.md) e exemplos de chamadas em [docs/api-examples.http](docs/api-examples.http).
+
+### Início rápido
+
+Requisitos: Docker Desktop e Bun 1.4.x.
+
+```powershell
+$env:POSTGRES_EXPOSED_PORT='55432'
+docker compose up -d --build
+$env:TEST_POSTGRES_PORT='55432'
+bun install --frozen-lockfile
+bun run test
+bun run test:concurrency
+```
+
+Com `POSTGRES_EXPOSED_PORT=55432`, o Compose sobe PostgreSQL em `55432`, LocalStack em `4566` e três instâncias da API em `3000`, `3001` e `3002`. Confira `GET http://localhost:3000/health/ready` antes da demonstração.
+Um container one-shot executa as migrations antes de liberar as APIs. Fora do Compose, use `bun run db:migrate`.
+
+### Comandos de verificação
+
+Quando o Compose completo estiver ativo, pare as APIs/workers antes das suítes que compartilham o banco e as filas de teste:
+
+```powershell
+docker compose stop app app-2 app-3
+bun run build
+bun run test:unit
+$env:TEST_POSTGRES_PORT='55432'; bun run test:integration
+$env:TEST_POSTGRES_PORT='55432'; bun run test:e2e
+$env:TEST_POSTGRES_PORT='55432'; bun run test:concurrency
+$env:TEST_POSTGRES_PORT='55432'; bun run test:report
+```
+
+`test:report` gera `reports/junit.xml`. O arquivo é deliberadamente ignorado pelo Git para que a evidência seja sempre regenerada a partir do código atual.
+
+### Decisão sobre autenticação
+
+Autenticação não foi implementada para preservar o timebox destinado à correção financeira. `ProviderAuthGuard` é o ponto de extensão explícito e atualmente permite requisições; em produção ele validaria JWT/OIDC emitido por um IdP externo. Rotas de health permanecem abertas e mensagens SQS continuam sendo tratadas como tráfego interno autenticado pela infraestrutura.
+
 ## Bem-vindo à Jungle Gaming 🦧
 
 A **Jungle Gaming** é uma software house especializada em iGaming — desenvolvemos plataformas de cassino online com tecnologia de ponta: NestJS, Bun, TanStack, DDD e arquitetura orientada a eventos. Somos apaixonados por engenharia de software e acreditamos que grandes produtos nascem de grandes times.
