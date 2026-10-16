@@ -16,6 +16,7 @@ export class MikroOrmOutboxRepository implements OutboxRepository {
   async claimDue(
     now: Date,
     limit: number,
+    leaseUntil: Date,
     context: TransactionContext,
   ): Promise<OutboxRecordData[]> {
     const records = await entityManagerFrom(context).find(
@@ -30,7 +31,9 @@ export class MikroOrmOutboxRepository implements OutboxRepository {
         lockMode: LockMode.PESSIMISTIC_PARTIAL_WRITE,
       },
     );
-    return records.map((record) => ({ ...record }));
+    for (const record of records) record.nextAttemptAt = leaseUntil;
+    await entityManagerFrom(context).flush();
+    return records.map((record) => this.toData(record));
   }
 
   async save(message: OutboxRecordData, context: TransactionContext): Promise<void> {
@@ -38,5 +41,18 @@ export class MikroOrmOutboxRepository implements OutboxRepository {
       OutboxMessageRecord,
       Object.assign(new OutboxMessageRecord(), message),
     );
+  }
+
+  private toData(record: OutboxMessageRecord): OutboxRecordData {
+    return {
+      id: record.id,
+      aggregateId: record.aggregateId,
+      eventType: record.eventType,
+      payload: record.payload,
+      occurredAt: record.occurredAt,
+      attempts: record.attempts,
+      nextAttemptAt: record.nextAttemptAt ?? undefined,
+      publishedAt: record.publishedAt ?? undefined,
+    };
   }
 }

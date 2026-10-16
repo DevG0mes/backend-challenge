@@ -13,6 +13,6 @@ export interface OutboxRecordData {
 
 export interface OutboxRepository {
   insert(message: OutboxRecordData, context: TransactionContext): Promise<void>;
-  claimDue(now: Date, limit: number, context: TransactionContext): Promise<OutboxRecordData[]>;
+  claimDue(now: Date, limit: number, leaseUntil: Date, context: TransactionContext): Promise<OutboxRecordData[]>;
   save(message: OutboxRecordData, context: TransactionContext): Promise<void>;
 }

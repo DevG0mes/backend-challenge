@@ -4,6 +4,7 @@ set -euo pipefail
 region="${AWS_DEFAULT_REGION:-us-east-1}"
 dlq_name="wager-transactions-dlq.fifo"
 queue_name="wager-transactions.fifo"
+events_name="wager-events.fifo"
 
 awslocal sqs create-queue \
   --region "$region" \
@@ -19,3 +20,8 @@ awslocal sqs create-queue \
   --region "$region" \
   --queue-name "$queue_name" \
   --attributes "$attributes"
+
+awslocal sqs create-queue \
+  --region "$region" \
+  --queue-name "$events_name" \
+  --attributes FifoQueue=true,ContentBasedDeduplication=true
