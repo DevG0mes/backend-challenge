@@ -1,0 +1,124 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-wagering_core}
+      POSTGRES_USER: ${POSTGRES_USER:-dw_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dw_local_N7v4K2p9}
+    ports:
+      - "${POSTGRES_EXPOSED_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  localstack:
+    image: localstack/localstack:4.9
+    environment:
+      SERVICES: sqs
+      AWS_DEFAULT_REGION: ${AWS_REGION:-us-east-1}
+      DEBUG: ${LOCALSTACK_DEBUG:-0}
+    ports:
+      - "${LOCALSTACK_EXPOSED_PORT:-4566}:4566"
+    volumes:
+      - ./scripts/localstack:/etc/localstack/init/ready.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/wagering-sqs-ready && curl -fsS http://localhost:4566/_localstack/health | grep -Eq '\"sqs\": \"(available|running)\"'"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    build:
+      context: .
+    command: ["bun", "run", "dist/database/migrate.js"]
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-wagering_core}
+      POSTGRES_USER: ${POSTGRES_USER:-dw_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dw_local_N7v4K2p9}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  app:
+    build:
+      context: .
+    environment:
+      PORT: 3000
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-wagering_core}
+      POSTGRES_USER: ${POSTGRES_USER:-dw_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dw_local_N7v4K2p9}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-test}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-test}
+      SQS_ENDPOINT: http://localstack:4566
+      WORKERS_ENABLED: "true"
+    ports:
+      - "${APP_EXPOSED_PORT:-3000}:3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+
+  app-2:
+    build:
+      context: .
+    environment:
+      PORT: 3000
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-wagering_core}
+      POSTGRES_USER: ${POSTGRES_USER:-dw_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dw_local_N7v4K2p9}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-test}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-test}
+      SQS_ENDPOINT: http://localstack:4566
+      WORKERS_ENABLED: "true"
+    ports:
+      - "${APP_2_EXPOSED_PORT:-3001}:3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+
+  app-3:
+    build:
+      context: .
+    environment:
+      PORT: 3000
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-wagering_core}
+      POSTGRES_USER: ${POSTGRES_USER:-dw_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dw_local_N7v4K2p9}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-test}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-test}
+      SQS_ENDPOINT: http://localstack:4566
+      WORKERS_ENABLED: "true"
+    ports:
+      - "${APP_3_EXPOSED_PORT:-3002}:3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
