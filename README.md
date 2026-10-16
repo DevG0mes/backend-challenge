@@ -14,7 +14,7 @@ Serviço financeiro distribuído para processar `BET`, `WIN`, `LOSS`, `REFUND` e
 | [`docs/failure-codes.md`](docs/failure-codes.md) | códigos de falha estáveis |
 | [`docs/api-examples.http`](docs/api-examples.http) | exemplos executáveis da API HTTP |
 
-**Evidência atual:** 165 testes, 0 falhas e 406 assertions na suíte padrão, além de cinco cenários de concorrência com três processos reais.
+**Evidência atual:** 179 testes, 0 falhas e 428 assertions na suíte padrão, além de cinco cenários de concorrência com três processos reais e teste de carga com reconciliação contábil.
 
 ---
 
@@ -312,10 +312,10 @@ bun run test:report
 `test:report` gera `reports/junit.xml`, ignorado pelo Git para sempre representar a execução atual.
 
 ```text
-165 pass
+179 pass
 0 fail
-406 expect() calls
-28 arquivos de teste
+428 expect() calls
+32 arquivos de teste
 ```
 
 ### Concorrência com processos reais
@@ -334,13 +334,22 @@ bun run test:concurrency
 
 Também são testados migrations `up/down/up`, constraints, ledger imutável, atomicidade, inbox, publishers concorrentes, retry, DLQ, referências pendentes, API E2E, health e reconciliação.
 
+### Carga local
+
+```powershell
+docker compose start app app-2 app-3
+bun run test:load
+```
+
+Na execução de referência, o cenário distribuído sustentou **140,73 req/s** (p95 **201,78 ms**) e a hot wallet **62,12 req/s** (p95 **1.276,75 ms**), ambos sem erro HTTP e sem divergência entre saldo e ledger. Ambiente, configuração, percentis e limitações estão em [`docs/LOAD_TEST.md`](docs/LOAD_TEST.md).
+
 ---
 
 ## Segurança e autenticação
 
 `ProviderAuthGuard` é o ponto de extensão das APIs de negócio e intencionalmente permite requisições nesta entrega. Em produção, deve validar JWT/OIDC e vincular as claims ao `providerId`. Health permanece público; SQS deve usar identidade e políticas da infraestrutura.
 
-As credenciais `wagering` e `test` são exclusivamente locais. Produção deve injetar secrets próprios.
+As credenciais padrão (`dw_app` / `dw_local_N7v4K2p9`) são públicas e servem exclusivamente para o ambiente local. Produção deve injetar secrets próprios.
 
 ---
 

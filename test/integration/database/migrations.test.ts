@@ -11,9 +11,9 @@ describe('database migrations', () => {
       createMikroOrmConfig({
         host: '127.0.0.1',
         port: Number(process.env.TEST_POSTGRES_PORT ?? '55432'),
-        dbName: 'wagering',
-        user: 'wagering',
-        password: 'wagering',
+        dbName: 'wagering_core',
+        user: 'dw_app',
+        password: 'dw_local_N7v4K2p9',
       }),
     );
   });

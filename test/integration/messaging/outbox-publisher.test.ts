@@ -21,7 +21,7 @@ describe('concurrent outbox publisher', () => {
   let metrics: InMemoryMetrics;
 
   beforeAll(async () => {
-    orm = await MikroORM.init(createMikroOrmConfig({ host: '127.0.0.1', port: Number(process.env.TEST_POSTGRES_PORT ?? '55432'), dbName: 'wagering', user: 'wagering', password: 'wagering' }));
+    orm = await MikroORM.init(createMikroOrmConfig({ host: '127.0.0.1', port: Number(process.env.TEST_POSTGRES_PORT ?? '55432'), dbName: 'wagering_core', user: 'dw_app', password: 'dw_local_N7v4K2p9' }));
     await orm.migrator.up();
     transactions = new PostgresTransactionRunner(orm.em);
     repository = new MikroOrmOutboxRepository(orm.em);

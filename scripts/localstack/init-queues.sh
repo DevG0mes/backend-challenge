@@ -25,3 +25,6 @@ awslocal sqs create-queue \
   --region "$region" \
   --queue-name "$events_name" \
   --attributes FifoQueue=true,ContentBasedDeduplication=true
+
+# Compose must not start the application replicas until every required queue exists.
+touch /tmp/wagering-sqs-ready
