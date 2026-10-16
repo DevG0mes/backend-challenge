@@ -8,11 +8,12 @@
     "start": "bun run src/main.ts",
     "start:dev": "bun --watch run src/main.ts",
     "build": "nest build",
-    "test": "bun test",
+    "test": "bun test ./test/unit ./test/integration ./test/e2e ./test/health",
     "test:unit": "bun test ./test/unit",
     "test:integration": "bun test ./test/integration",
     "test:e2e": "bun test ./test/health ./test/e2e",
-    "test:report": "bun test --reporter=junit --reporter-outfile=reports/junit.xml"
+    "test:concurrency": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/test-concurrency.ps1",
+    "test:report": "bun test ./test/unit ./test/integration ./test/e2e ./test/health --reporter=junit --reporter-outfile=reports/junit.xml"
   },
   "dependencies": {
     "@aws-sdk/client-sqs": "3.1152.0",
