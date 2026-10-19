@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import { DomainError } from '../../../../src/shared/domain/errors/domain.error';
+import { DomainError, type DomainErrorCode } from '../../../../src/shared/domain/errors/domain.error';
 import { Money } from '../../../../src/shared/domain/money/money';
 import { LedgerDirection } from '../../../../src/wallet/domain/wallet-ledger-entry';
 import { FailureCode } from '../../../../src/wagering/domain/failure-code';
@@ -39,7 +39,7 @@ function props(
   };
 }
 
-function expectDomainError(action: () => unknown, code: string): void {
+function expectDomainError(action: () => unknown, code: DomainErrorCode): void {
   try {
     action();
     throw new Error(`Expected DomainError with code ${code}`);
@@ -177,6 +177,7 @@ describe('WagerTransaction', () => {
       status: WagerTransactionStatus.Rejected,
       failureCode: FailureCode.InsufficientFunds,
       referenceTransactionId: undefined,
+      resultBalance: undefined,
       processedAt: undefined,
     });
 

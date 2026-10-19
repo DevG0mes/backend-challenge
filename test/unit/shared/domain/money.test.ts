@@ -1,9 +1,9 @@
 import { describe, expect, test } from 'bun:test';
 
-import { DomainError } from '../../../../src/shared/domain/errors/domain.error';
+import { DomainError, type DomainErrorCode } from '../../../../src/shared/domain/errors/domain.error';
 import { Money } from '../../../../src/shared/domain/money/money';
 
-function expectDomainError(action: () => unknown, code: string): void {
+function expectDomainError(action: () => unknown, code: DomainErrorCode): void {
   try {
     action();
     throw new Error(`Expected DomainError with code ${code}`);

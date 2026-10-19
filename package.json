@@ -8,6 +8,7 @@
     "start": "bun run src/main.ts",
     "start:dev": "bun --watch run src/main.ts",
     "build": "nest build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "db:migrate": "bun run src/database/migrate.ts",
     "test": "bun test ./test/unit ./test/integration ./test/e2e ./test/health",
     "test:unit": "bun test ./test/unit",

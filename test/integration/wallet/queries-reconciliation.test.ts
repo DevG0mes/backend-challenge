@@ -61,9 +61,11 @@ describe('wallet queries and reconciliation', () => {
     expect(await getWallet.execute(wallet.id)).toMatchObject({ id: wallet.id, playerId: PLAYER_ID, balance: { amount: '95.00', currency: 'BRL' }, version: 3 });
     const first = await listLedger.execute(wallet.id, { limit: 2 });
     expect(first.items).toHaveLength(2);
-    expect(first.nextCursor).toBeString();
-    expect(first.nextCursor).not.toContain(first.items[1]!.id);
-    const second = await listLedger.execute(wallet.id, { limit: 2, cursor: first.nextCursor });
+    const nextCursor = first.nextCursor;
+    expect(nextCursor).toBeString();
+    if (nextCursor === undefined) throw new Error('Expected a cursor for the next page');
+    expect(nextCursor).not.toContain(first.items[1]!.id);
+    const second = await listLedger.execute(wallet.id, { limit: 2, cursor: nextCursor });
     expect(second.items).toHaveLength(1);
     expect(new Set([...first.items, ...second.items].map((item) => item.id)).size).toBe(3);
     expect(second.nextCursor).toBeUndefined();
